@@ -1,5 +1,6 @@
 package com.preetinest.controller;
 
+import com.preetinest.dto.ServiceFullResponseDTO;
 import com.preetinest.dto.ServiceRequestDTO;
 import com.preetinest.service.ServiceService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -121,5 +122,23 @@ public class ServiceController {
     public ResponseEntity<Void> softDeleteService(@PathVariable Long id, @RequestParam Long userId) {
         serviceService.softDeleteService(id, userId);
         return ResponseEntity.noContent().build();
+    }
+
+    // com.preetinest.controller.ServiceController
+    @GetMapping("/slug/{slug}/full")
+    @Operation(
+            summary = "Get full service by slug",
+            description = "Returns complete service with details and FAQs. " +
+                    "Only active, displayed, and non-deleted records are returned. " +
+                    "Details and FAQs are sorted by displayOrder."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Full service data"),
+            @ApiResponse(responseCode = "404", description = "Service not found or not visible")
+    })
+    public ResponseEntity<ServiceFullResponseDTO> getFullServiceBySlug(@PathVariable String slug) {
+        return serviceService.getFullServiceBySlug(slug)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 }

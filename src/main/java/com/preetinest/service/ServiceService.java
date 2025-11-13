@@ -1,6 +1,7 @@
 package com.preetinest.service;
 
 
+import com.preetinest.dto.ServiceFullResponseDTO;
 import com.preetinest.dto.ServiceRequestDTO;
 
 import java.util.List;
@@ -16,4 +17,8 @@ public interface ServiceService {
     void softDeleteService(Long id, Long userId);
     Map<String, Object> createService(ServiceRequestDTO requestDTO, Long userId);
     Map<String, Object> updateService(Long id, ServiceRequestDTO requestDTO, Long userId);
+
+    Optional<ServiceFullResponseDTO> getFullServiceBySlug(String slug);
+
+
 }

@@ -1,26 +1,16 @@
 package com.preetinest.impl;
 
+import com.preetinest.dto.ServiceFullResponseDTO;
 import com.preetinest.dto.ServiceRequestDTO;
-import com.preetinest.dto.response.ServiceDetailResponseDTO;
-import com.preetinest.dto.response.ServiceResponseDTO;
-import com.preetinest.entity.Services;
-import com.preetinest.entity.ServiceDetail;
-import com.preetinest.entity.SubCategory;
-import com.preetinest.entity.User;
-import com.preetinest.repository.ServiceDetailRepository;
-import com.preetinest.repository.ServiceRepository;
-import com.preetinest.repository.SubCategoryRepository;
-import com.preetinest.repository.UserRepository;
+import com.preetinest.dto.response.*;
+import com.preetinest.entity.*;
+import com.preetinest.repository.*;
 import com.preetinest.service.ServiceService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,16 +20,20 @@ public class ServiceServiceImpl implements ServiceService {
     private final SubCategoryRepository subCategoryRepository;
     private final UserRepository userRepository;
     private final ServiceDetailRepository serviceDetailRepository;
+    private final ServiceFAQRepository serviceFAQRepository; // NEW
 
     @Autowired
-    public ServiceServiceImpl(ServiceRepository serviceRepository,
-                              SubCategoryRepository subCategoryRepository,
-                              UserRepository userRepository,
-                              ServiceDetailRepository serviceDetailRepository) {
+    public ServiceServiceImpl(
+            ServiceRepository serviceRepository,
+            SubCategoryRepository subCategoryRepository,
+            UserRepository userRepository,
+            ServiceDetailRepository serviceDetailRepository,
+            ServiceFAQRepository serviceFAQRepository) { // INJECT
         this.serviceRepository = serviceRepository;
         this.subCategoryRepository = subCategoryRepository;
         this.userRepository = userRepository;
         this.serviceDetailRepository = serviceDetailRepository;
+        this.serviceFAQRepository = serviceFAQRepository;
     }
 
     @Override
@@ -221,6 +215,55 @@ public class ServiceServiceImpl implements ServiceService {
         serviceRepository.save(service);
     }
 
+    // ===================================================================
+    // NEW METHOD: getFullServiceBySlug
+    // ===================================================================
+    @Override
+    public Optional<ServiceFullResponseDTO> getFullServiceBySlug(String slug) {
+        Optional<Services> serviceOpt = serviceRepository.findBySlug(slug)
+                .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus());
+
+        if (serviceOpt.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Services service = serviceOpt.get();
+
+        // 1. Service DTO
+        ServiceResponseDTO serviceDTO = mapToServiceResponseDTO(service);
+
+        // 2. Details (sorted by displayOrder)
+        List<ServiceDetailResponseDTO> details = serviceDetailRepository.findByServiceId(service.getId())
+                .stream()
+                .filter(sd -> sd.getDeleteStatus() == 2 && sd.isActive() && sd.isDisplayStatus())
+                .sorted(Comparator.comparingInt(ServiceDetail::getDisplayOrder))
+                .map(this::mapToServiceDetailResponseDTO)
+                .collect(Collectors.toList());
+
+        // 3. FAQs (sorted by displayOrder)
+        List<ServiceFAQResponseDTO> faqs = serviceFAQRepository.findByServiceId(service.getId())
+                .stream()
+                .filter(f -> f.getDeleteStatus() == 2 && f.isActive() && f.isDisplayStatus())
+                .sorted(Comparator.comparingInt(ServiceFAQ::getDisplayOrder))
+                .map(this::mapToServiceFAQResponseDTO)
+                .collect(Collectors.toList());
+
+        // Attach details to service DTO (your DTO supports it)
+        serviceDTO.setServiceDetails(details);
+
+        // Final response
+        ServiceFullResponseDTO response = new ServiceFullResponseDTO();
+        response.setService(serviceDTO);
+        response.setDetails(details);
+        response.setFaqs(faqs);
+
+        return Optional.of(response);
+    }
+
+    // ===================================================================
+    // MAPPERS
+    // ===================================================================
+
     private ServiceResponseDTO mapToServiceResponseDTO(Services service) {
         ServiceResponseDTO dto = new ServiceResponseDTO();
         dto.setId(service.getId());
@@ -258,6 +301,22 @@ public class ServiceServiceImpl implements ServiceService {
         dto.setCreatedAt(serviceDetail.getCreatedAt());
         dto.setUpdatedAt(serviceDetail.getUpdatedAt());
         dto.setCreatedById(serviceDetail.getCreatedBy() != null ? serviceDetail.getCreatedBy().getId() : null);
+        return dto;
+    }
+
+    private ServiceFAQResponseDTO mapToServiceFAQResponseDTO(ServiceFAQ faq) {
+        ServiceFAQResponseDTO dto = new ServiceFAQResponseDTO();
+        dto.setId(faq.getId());
+        dto.setUuid(faq.getUuid());
+        dto.setQuestion(faq.getQuestion());
+        dto.setAnswer(faq.getAnswer());
+        dto.setDisplayOrder(faq.getDisplayOrder());
+        dto.setServiceId(faq.getService().getId());
+        dto.setActive(faq.isActive());
+        dto.setDisplayStatus(faq.isDisplayStatus());
+        dto.setCreatedAt(faq.getCreatedAt());
+        dto.setUpdatedAt(faq.getUpdatedAt());
+        dto.setCreatedById(faq.getCreatedBy() != null ? faq.getCreatedBy().getId() : null);
         return dto;
     }
 

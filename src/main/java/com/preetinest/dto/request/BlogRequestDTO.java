@@ -43,4 +43,9 @@ public class BlogRequestDTO {
     private Long subCategoryId;
 
     private Long serviceId;
+
+    private String thumbnailImageBase64;
+
+
+
 }

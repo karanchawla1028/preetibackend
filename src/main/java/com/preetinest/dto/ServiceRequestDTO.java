@@ -44,4 +44,7 @@ public class ServiceRequestDTO {
     private boolean displayStatus = true;
 
     private boolean showOnHome = false;
+
+    private String iconBase64;    // base64 string for icon
+    private String imageBase64;   // base64 string for main image
 }

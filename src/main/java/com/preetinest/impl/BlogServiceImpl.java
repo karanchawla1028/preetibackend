@@ -1,5 +1,6 @@
 package com.preetinest.impl;
 
+import com.preetinest.config.S3Service;
 import com.preetinest.dto.request.BlogRequestDTO;
 import com.preetinest.dto.response.BlogResponseDTO;
 import com.preetinest.entity.Blog;
@@ -34,6 +35,9 @@ public class BlogServiceImpl implements BlogService {
     private final ServiceRepository serviceRepository;
 
     @Autowired
+    private S3Service s3Service;
+
+    @Autowired
     public BlogServiceImpl(BlogRepository blogRepository,
                            UserRepository userRepository,
                            CategoryRepository categoryRepository,
@@ -48,32 +52,24 @@ public class BlogServiceImpl implements BlogService {
 
     @Override
     public Map<String, Object> createBlog(BlogRequestDTO requestDTO, Long userId) {
-        User createdBy = null;
-        if (userId != null) {
-            createdBy = userRepository.findById(userId)
-                    .filter(u -> u.getDeleteStatus() == 2 && u.isEnable())
-                    .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
-            if (!"ADMIN".equalsIgnoreCase(createdBy.getRole().getName())) {
-                throw new IllegalArgumentException("Only ADMIN users can create blogs");
-            }
-        }
+        User createdBy = getAdminUser(userId);
 
         Category category = categoryRepository.findById(requestDTO.getCategoryId())
                 .filter(c -> c.getDeleteStatus() == 2 && c.isActive())
-                .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + requestDTO.getCategoryId()));
+                .orElseThrow(() -> new EntityNotFoundException("Category not found"));
 
         SubCategory subCategory = null;
         if (requestDTO.getSubCategoryId() != null) {
             subCategory = subCategoryRepository.findById(requestDTO.getSubCategoryId())
                     .filter(sc -> sc.getDeleteStatus() == 2 && sc.isActive() && sc.isDisplayStatus())
-                    .orElseThrow(() -> new EntityNotFoundException("SubCategory not found with id: " + requestDTO.getSubCategoryId()));
+                    .orElseThrow(() -> new EntityNotFoundException("SubCategory not found"));
         }
 
         Services service = null;
         if (requestDTO.getServiceId() != null) {
             service = serviceRepository.findById(requestDTO.getServiceId())
                     .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus())
-                    .orElseThrow(() -> new EntityNotFoundException("Service not found with id: " + requestDTO.getServiceId()));
+                    .orElseThrow(() -> new EntityNotFoundException("Service not found"));
         }
 
         Blog blog = new Blog();
@@ -84,7 +80,6 @@ public class BlogServiceImpl implements BlogService {
         blog.setMetaKeyword(requestDTO.getMetaKeyword());
         blog.setMetaDescription(requestDTO.getMetaDescription());
         blog.setSlug(requestDTO.getSlug());
-        blog.setThumbnailUrl(requestDTO.getThumbnailUrl());
         blog.setActive(requestDTO.getActive());
         blog.setDisplayStatus(requestDTO.getActive());
         blog.setShowOnHome(requestDTO.getShowOnHome());
@@ -94,8 +89,62 @@ public class BlogServiceImpl implements BlogService {
         blog.setSubCategory(subCategory);
         blog.setService(service);
 
+        // Upload thumbnail directly to root (no folder)
+        if (requestDTO.getThumbnailImageBase64() != null && !requestDTO.getThumbnailImageBase64().isBlank()) {
+            String fileName = s3Service.uploadBase64Image(requestDTO.getThumbnailImageBase64());
+            blog.setThumbnailUrl(fileName);
+        }
+
         Blog savedBlog = blogRepository.save(blog);
         return mapToResponseMap(savedBlog);
+    }
+
+    @Override
+    public Map<String, Object> updateBlog(Long id, BlogRequestDTO requestDTO, Long userId) {
+        Blog blog = blogRepository.findById(id)
+                .filter(b -> b.getDeleteStatus() == 2)
+                .orElseThrow(() -> new EntityNotFoundException("Blog not found"));
+
+        getAdminUser(userId);
+
+        Category category = categoryRepository.findById(requestDTO.getCategoryId())
+                .filter(c -> c.getDeleteStatus() == 2 && c.isActive())
+                .orElseThrow(() -> new EntityNotFoundException("Category not found"));
+
+        SubCategory subCategory = null;
+        if (requestDTO.getSubCategoryId() != null) {
+            subCategory = subCategoryRepository.findById(requestDTO.getSubCategoryId())
+                    .filter(sc -> sc.getDeleteStatus() == 2 && sc.isActive() && sc.isDisplayStatus())
+                    .orElseThrow(() -> new EntityNotFoundException("SubCategory not found"));
+        }
+
+        Services service = null;
+        if (requestDTO.getServiceId() != null) {
+            service = serviceRepository.findById(requestDTO.getServiceId())
+                    .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus())
+                    .orElseThrow(() -> new EntityNotFoundException("Service not found"));
+        }
+
+        blog.setTitle(requestDTO.getTitle());
+        blog.setExcerpt(requestDTO.getExcerpt());
+        blog.setMetaTitle(requestDTO.getMetaTitle());
+        blog.setMetaKeyword(requestDTO.getMetaKeyword());
+        blog.setMetaDescription(requestDTO.getMetaDescription());
+        blog.setSlug(requestDTO.getSlug());
+        blog.setActive(requestDTO.getActive());
+        blog.setDisplayStatus(requestDTO.getActive());
+        blog.setShowOnHome(requestDTO.getShowOnHome());
+        blog.setCategory(category);
+        blog.setSubCategory(subCategory);
+        blog.setService(service);
+
+        if (requestDTO.getThumbnailImageBase64() != null && !requestDTO.getThumbnailImageBase64().isBlank()) {
+            String newFileName = s3Service.uploadBase64Image(requestDTO.getThumbnailImageBase64());
+            blog.setThumbnailUrl(newFileName);
+        }
+
+        Blog updatedBlog = blogRepository.save(blog);
+        return mapToResponseMap(updatedBlog);
     }
 
     @Override
@@ -137,70 +186,12 @@ public class BlogServiceImpl implements BlogService {
     }
 
     @Override
-    public Map<String, Object> updateBlog(Long id, BlogRequestDTO requestDTO, Long userId) {
-        Blog blog = blogRepository.findById(id)
-                .filter(b -> b.getDeleteStatus() == 2)
-                .orElseThrow(() -> new EntityNotFoundException("Blog not found with id: " + id));
-
-        User createdBy = null;
-        if (userId != null) {
-            createdBy = userRepository.findById(userId)
-                    .filter(u -> u.getDeleteStatus() == 2 && u.isEnable())
-                    .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
-            if (!"ADMIN".equalsIgnoreCase(createdBy.getRole().getName())) {
-                throw new IllegalArgumentException("Only ADMIN users can update blogs");
-            }
-        }
-
-        Category category = categoryRepository.findById(requestDTO.getCategoryId())
-                .filter(c -> c.getDeleteStatus() == 2 && c.isActive())
-                .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + requestDTO.getCategoryId()));
-
-        SubCategory subCategory = null;
-        if (requestDTO.getSubCategoryId() != null) {
-            subCategory = subCategoryRepository.findById(requestDTO.getSubCategoryId())
-                    .filter(sc -> sc.getDeleteStatus() == 2 && sc.isActive() && sc.isDisplayStatus())
-                    .orElseThrow(() -> new EntityNotFoundException("SubCategory not found with id: " + requestDTO.getSubCategoryId()));
-        }
-
-        Services service = null;
-        if (requestDTO.getServiceId() != null) {
-            service = serviceRepository.findById(requestDTO.getServiceId())
-                    .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus())
-                    .orElseThrow(() -> new EntityNotFoundException("Service not found with id: " + requestDTO.getServiceId()));
-        }
-
-        blog.setTitle(requestDTO.getTitle());
-        blog.setExcerpt(requestDTO.getExcerpt());
-        blog.setMetaTitle(requestDTO.getMetaTitle());
-        blog.setMetaKeyword(requestDTO.getMetaKeyword());
-        blog.setMetaDescription(requestDTO.getMetaDescription());
-        blog.setSlug(requestDTO.getSlug());
-        blog.setThumbnailUrl(requestDTO.getThumbnailUrl());
-        blog.setActive(requestDTO.getActive());
-        blog.setDisplayStatus(requestDTO.getActive());
-        blog.setShowOnHome(requestDTO.getShowOnHome());
-        blog.setCreatedBy(createdBy);
-        blog.setCategory(category);
-        blog.setSubCategory(subCategory);
-        blog.setService(service);
-
-        Blog updatedBlog = blogRepository.save(blog);
-        return mapToResponseMap(updatedBlog);
-    }
-
-    @Override
     public void softDeleteBlog(Long id, Long userId) {
         Blog blog = blogRepository.findById(id)
                 .filter(b -> b.getDeleteStatus() == 2)
-                .orElseThrow(() -> new EntityNotFoundException("Blog not found with id: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Blog not found"));
 
-        User user = userRepository.findById(userId)
-                .filter(u -> u.getDeleteStatus() == 2 && u.isEnable())
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
-        if (!"ADMIN".equalsIgnoreCase(user.getRole().getName())) {
-            throw new IllegalArgumentException("Only ADMIN users can delete blogs");
-        }
+        getAdminUser(userId);
 
         blog.setDeleteStatus(1);
         blog.setActive(false);
@@ -208,50 +199,41 @@ public class BlogServiceImpl implements BlogService {
         blogRepository.save(blog);
     }
 
-    private BlogResponseDTO mapToResponseDTO(Blog blog) {
-        BlogResponseDTO dto = new BlogResponseDTO();
-        dto.setId(blog.getId());
-        dto.setUuid(blog.getUuid());
-        dto.setTitle(blog.getTitle());
-        dto.setExcerpt(blog.getExcerpt());
-        dto.setMetaTitle(blog.getMetaTitle());
-        dto.setMetaKeyword(blog.getMetaKeyword());
-        dto.setMetaDescription(blog.getMetaDescription());
-        dto.setSlug(blog.getSlug());
-        dto.setThumbnailUrl(blog.getThumbnailUrl());
-        dto.setActive(blog.isActive());
-        dto.setDisplayStatus(blog.isDisplayStatus());
-        dto.setShowOnHome(blog.isShowOnHome());
-        dto.setCreatedAt(blog.getCreatedAt());
-        dto.setUpdatedAt(blog.getUpdatedAt());
-        dto.setCreatedById(blog.getCreatedBy() != null ? blog.getCreatedBy().getId() : null);
-        dto.setCategoryId(blog.getCategory().getId());
-        dto.setSubCategoryId(blog.getSubCategory() != null ? blog.getSubCategory().getId() : null);
-        dto.setServiceId(blog.getService() != null ? blog.getService().getId() : null);
-        return dto;
+    private User getAdminUser(Long userId) {
+        if (userId == null) return null;
+        User user = userRepository.findById(userId)
+                .filter(u -> u.getDeleteStatus() == 2 && u.isEnable())
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        if (!"ADMIN".equalsIgnoreCase(user.getRole().getName())) {
+            throw new IllegalArgumentException("Only ADMIN can perform this action");
+        }
+        return user;
     }
 
     private Map<String, Object> mapToResponseMap(Blog blog) {
-        BlogResponseDTO dto = mapToResponseDTO(blog);
         Map<String, Object> response = new HashMap<>();
-        response.put("id", dto.getId());
-        response.put("uuid", dto.getUuid());
-        response.put("title", dto.getTitle());
-        response.put("excerpt", dto.getExcerpt());
-        response.put("metaTitle", dto.getMetaTitle());
-        response.put("metaKeyword", dto.getMetaKeyword());
-        response.put("metaDescription", dto.getMetaDescription());
-        response.put("slug", dto.getSlug());
-        response.put("thumbnailUrl", dto.getThumbnailUrl());
-        response.put("active", dto.isActive());
-        response.put("displayStatus", dto.isDisplayStatus());
-        response.put("showOnHome", dto.isShowOnHome());
-        response.put("createdAt", dto.getCreatedAt());
-        response.put("updatedAt", dto.getUpdatedAt());
-        response.put("createdById", dto.getCreatedById());
-        response.put("categoryId", dto.getCategoryId());
-        response.put("subCategoryId", dto.getSubCategoryId());
-        response.put("serviceId", dto.getServiceId());
+        response.put("id", blog.getId());
+        response.put("uuid", blog.getUuid());
+        response.put("title", blog.getTitle());
+        response.put("excerpt", blog.getExcerpt());
+        response.put("metaTitle", blog.getMetaTitle());
+        response.put("metaKeyword", blog.getMetaKeyword());
+        response.put("metaDescription", blog.getMetaDescription());
+        response.put("slug", blog.getSlug());
+        response.put("active", blog.isActive());
+        response.put("displayStatus", blog.isDisplayStatus());
+        response.put("showOnHome", blog.isShowOnHome());
+        response.put("createdAt", blog.getCreatedAt());
+        response.put("updatedAt", blog.getUpdatedAt());
+        response.put("createdById", blog.getCreatedBy() != null ? blog.getCreatedBy().getId() : null);
+        response.put("categoryId", blog.getCategory().getId());
+        response.put("subCategoryId", blog.getSubCategory() != null ? blog.getSubCategory().getId() : null);
+        response.put("serviceId", blog.getService() != null ? blog.getService().getId() : null);
+
+        // THIS IS WHAT YOU WANT
+        response.put("thumbnailUrl", s3Service.getFullUrl(blog.getThumbnailUrl()));
+        // Example: https://preetinest.s3.ca-central-1.amazonaws.com/abc123def456.png
+
         return response;
     }
 }

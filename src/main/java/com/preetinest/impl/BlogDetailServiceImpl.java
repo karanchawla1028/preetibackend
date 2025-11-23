@@ -1,5 +1,6 @@
 package com.preetinest.impl;
 
+import com.preetinest.config.S3Service;
 import com.preetinest.dto.request.BlogDetailRequestDTO;
 import com.preetinest.dto.response.BlogDetailResponseDTO;
 import com.preetinest.entity.Blog;
@@ -28,6 +29,9 @@ public class BlogDetailServiceImpl implements BlogDetailService {
     private final UserRepository userRepository;
 
     @Autowired
+    private S3Service s3Service;
+
+    @Autowired
     public BlogDetailServiceImpl(BlogDetailRepository blogDetailRepository,
                                  BlogRepository blogRepository,
                                  UserRepository userRepository) {
@@ -38,25 +42,16 @@ public class BlogDetailServiceImpl implements BlogDetailService {
 
     @Override
     public Map<String, Object> createBlogDetail(BlogDetailRequestDTO requestDTO, Long userId) {
-        User createdBy = null;
-        if (userId != null) {
-            createdBy = userRepository.findById(userId)
-                    .filter(u -> u.getDeleteStatus() == 2 && u.isEnable())
-                    .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
-            if (!"ADMIN".equalsIgnoreCase(createdBy.getRole().getName())) {
-                throw new IllegalArgumentException("Only ADMIN users can create blog details");
-            }
-        }
+        User createdBy = getAdminUser(userId);
 
         Blog blog = blogRepository.findById(requestDTO.getBlogId())
                 .filter(b -> b.getDeleteStatus() == 2 && b.isActive() && b.isDisplayStatus())
-                .orElseThrow(() -> new EntityNotFoundException("Blog not found with id: " + requestDTO.getBlogId()));
+                .orElseThrow(() -> new EntityNotFoundException("Blog not found"));
 
         BlogDetail blogDetail = new BlogDetail();
         blogDetail.setUuid(UUID.randomUUID().toString());
         blogDetail.setHeading(requestDTO.getHeading());
         blogDetail.setContent(requestDTO.getContent());
-        blogDetail.setImageUrl(requestDTO.getImageUrl());
         blogDetail.setDisplayOrder(requestDTO.getDisplayOrder());
         blogDetail.setBlog(blog);
         blogDetail.setActive(requestDTO.getActive());
@@ -64,115 +59,101 @@ public class BlogDetailServiceImpl implements BlogDetailService {
         blogDetail.setDeleteStatus(2);
         blogDetail.setCreatedBy(createdBy);
 
-        BlogDetail savedBlogDetail = blogDetailRepository.save(blogDetail);
-        return mapToResponseMap(savedBlogDetail);
-    }
+        // Upload image directly to root
+        if (requestDTO.getImageBase64() != null && !requestDTO.getImageBase64().isBlank()) {
+            String fileName = s3Service.uploadBase64Image(requestDTO.getImageBase64());
+            blogDetail.setImageUrl(fileName);
+        }
 
-    @Override
-    public Optional<Map<String, Object>> getBlogDetailById(Long id) {
-        return blogDetailRepository.findById(id)
-                .filter(bd -> bd.getDeleteStatus() == 2 && bd.isActive() && bd.isDisplayStatus())
-                .map(this::mapToResponseMap);
-    }
-
-    @Override
-    public Optional<Map<String, Object>> getBlogDetailByUuid(String uuid) {
-        return blogDetailRepository.findByUuid(uuid)
-                .filter(bd -> bd.getDeleteStatus() == 2 && bd.isActive() && bd.isDisplayStatus())
-                .map(this::mapToResponseMap);
-    }
-
-    @Override
-    public List<Map<String, Object>> getBlogDetailsByBlogId(Long blogId) {
-        return blogDetailRepository.findByBlogId(blogId)
-                .stream()
-                .filter(bd -> bd.getDeleteStatus() == 2 && bd.isActive() && bd.isDisplayStatus())
-                .map(this::mapToResponseMap)
-                .collect(Collectors.toList());
+        BlogDetail saved = blogDetailRepository.save(blogDetail);
+        return mapToResponseMap(saved);
     }
 
     @Override
     public Map<String, Object> updateBlogDetail(Long id, BlogDetailRequestDTO requestDTO, Long userId) {
         BlogDetail blogDetail = blogDetailRepository.findById(id)
                 .filter(bd -> bd.getDeleteStatus() == 2)
-                .orElseThrow(() -> new EntityNotFoundException("Blog detail not found with id: " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Blog detail not found"));
 
-        User createdBy = null;
-        if (userId != null) {
-            createdBy = userRepository.findById(userId)
-                    .filter(u -> u.getDeleteStatus() == 2 && u.isEnable())
-                    .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
-            if (!"ADMIN".equalsIgnoreCase(createdBy.getRole().getName())) {
-                throw new IllegalArgumentException("Only ADMIN users can update blog details");
-            }
-        }
+        getAdminUser(userId);
 
         Blog blog = blogRepository.findById(requestDTO.getBlogId())
                 .filter(b -> b.getDeleteStatus() == 2 && b.isActive() && b.isDisplayStatus())
-                .orElseThrow(() -> new EntityNotFoundException("Blog not found with id: " + requestDTO.getBlogId()));
+                .orElseThrow(() -> new EntityNotFoundException("Blog not found"));
 
         blogDetail.setHeading(requestDTO.getHeading());
         blogDetail.setContent(requestDTO.getContent());
-        blogDetail.setImageUrl(requestDTO.getImageUrl());
         blogDetail.setDisplayOrder(requestDTO.getDisplayOrder());
         blogDetail.setBlog(blog);
         blogDetail.setActive(requestDTO.getActive());
         blogDetail.setDisplayStatus(requestDTO.getActive());
-        blogDetail.setCreatedBy(createdBy);
 
-        BlogDetail updatedBlogDetail = blogDetailRepository.save(blogDetail);
-        return mapToResponseMap(updatedBlogDetail);
-    }
-
-    @Override
-    public void softDeleteBlogDetail(Long id, Long userId) {
-        BlogDetail blogDetail = blogDetailRepository.findById(id)
-                .filter(bd -> bd.getDeleteStatus() == 2)
-                .orElseThrow(() -> new EntityNotFoundException("Blog detail not found with id: " + id));
-
-        User user = userRepository.findById(userId)
-                .filter(u -> u.getDeleteStatus() == 2 && u.isEnable())
-                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
-        if (!"ADMIN".equalsIgnoreCase(user.getRole().getName())) {
-            throw new IllegalArgumentException("Only ADMIN users can delete blog details");
+        if (requestDTO.getImageBase64() != null && !requestDTO.getImageBase64().isBlank()) {
+            String fileName = s3Service.uploadBase64Image(requestDTO.getImageBase64());
+            blogDetail.setImageUrl(fileName);
         }
 
-        blogDetail.setDeleteStatus(1);
-        blogDetail.setActive(false);
-        blogDetail.setDisplayStatus(false);
-        blogDetailRepository.save(blogDetail);
+        BlogDetail updated = blogDetailRepository.save(blogDetail);
+        return mapToResponseMap(updated);
     }
 
-    private BlogDetailResponseDTO mapToResponseDTO(BlogDetail blogDetail) {
-        BlogDetailResponseDTO dto = new BlogDetailResponseDTO();
-        dto.setId(blogDetail.getId());
-        dto.setUuid(blogDetail.getUuid());
-        dto.setHeading(blogDetail.getHeading());
-        dto.setContent(blogDetail.getContent());
-        dto.setImageUrl(blogDetail.getImageUrl());
-        dto.setDisplayOrder(blogDetail.getDisplayOrder());
-        dto.setBlogId(blogDetail.getBlog().getId());
-        dto.setActive(blogDetail.isActive());
-        dto.setCreatedAt(blogDetail.getCreatedAt());
-        dto.setUpdatedAt(blogDetail.getUpdatedAt());
-        dto.setCreatedById(blogDetail.getCreatedBy() != null ? blogDetail.getCreatedBy().getId() : null);
-        return dto;
+    // Other methods unchanged...
+    @Override public Optional<Map<String, Object>> getBlogDetailById(Long id) {
+        return blogDetailRepository.findById(id)
+                .filter(bd -> bd.getDeleteStatus() == 2 && bd.isActive() && bd.isDisplayStatus())
+                .map(this::mapToResponseMap);
     }
 
-    private Map<String, Object> mapToResponseMap(BlogDetail blogDetail) {
-        BlogDetailResponseDTO dto = mapToResponseDTO(blogDetail);
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", dto.getId());
-        response.put("uuid", dto.getUuid());
-        response.put("heading", dto.getHeading());
-        response.put("content", dto.getContent());
-        response.put("imageUrl", dto.getImageUrl());
-        response.put("displayOrder", dto.getDisplayOrder());
-        response.put("blogId", dto.getBlogId());
-        response.put("active", dto.isActive());
-        response.put("createdAt", dto.getCreatedAt());
-        response.put("updatedAt", dto.getUpdatedAt());
-        response.put("createdById", dto.getCreatedById());
-        return response;
+    @Override public Optional<Map<String, Object>> getBlogDetailByUuid(String uuid) {
+        return blogDetailRepository.findByUuid(uuid)
+                .filter(bd -> bd.getDeleteStatus() == 2 && bd.isActive() && bd.isDisplayStatus())
+                .map(this::mapToResponseMap);
+    }
+
+    @Override public List<Map<String, Object>> getBlogDetailsByBlogId(Long blogId) {
+        return blogDetailRepository.findByBlogId(blogId).stream()
+                .filter(bd -> bd.getDeleteStatus() == 2 && bd.isActive() && bd.isDisplayStatus())
+                .map(this::mapToResponseMap)
+                .collect(Collectors.toList());
+    }
+
+    @Override public void softDeleteBlogDetail(Long id, Long userId) {
+        BlogDetail bd = blogDetailRepository.findById(id)
+                .filter(b -> b.getDeleteStatus() == 2)
+                .orElseThrow(() -> new EntityNotFoundException("Not found"));
+        getAdminUser(userId);
+        bd.setDeleteStatus(1); bd.setActive(false); bd.setDisplayStatus(false);
+        blogDetailRepository.save(bd);
+    }
+
+    private User getAdminUser(Long userId) {
+        if (userId == null) return null;
+        User user = userRepository.findById(userId)
+                .filter(u -> u.getDeleteStatus() == 2 && u.isEnable())
+                .orElseThrow(() -> new EntityNotFoundException("User not found"));
+        if (!"ADMIN".equalsIgnoreCase(user.getRole().getName())) {
+            throw new IllegalArgumentException("Only ADMIN can perform this action");
+        }
+        return user;
+    }
+
+    private Map<String, Object> mapToResponseMap(BlogDetail bd) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", bd.getId());
+        map.put("uuid", bd.getUuid());
+        map.put("heading", bd.getHeading());
+        map.put("content", bd.getContent());
+        map.put("displayOrder", bd.getDisplayOrder());
+        map.put("blogId", bd.getBlog().getId());
+        map.put("active", bd.isActive());
+        map.put("createdAt", bd.getCreatedAt());
+        map.put("updatedAt", bd.getUpdatedAt());
+        map.put("createdById", bd.getCreatedBy() != null ? bd.getCreatedBy().getId() : null);
+
+        // THIS IS WHAT YOU WANT
+        map.put("imageUrl", s3Service.getFullUrl(bd.getImageUrl()));
+        // → https://preetinest.s3.ca-central-1.amazonaws.com/abc123.png
+
+        return map;
     }
 }

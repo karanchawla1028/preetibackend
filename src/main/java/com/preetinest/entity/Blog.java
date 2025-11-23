@@ -87,4 +87,7 @@ public class Blog {
 
     @OneToMany(mappedBy = "blog", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BlogDetail> blogDetails = new ArrayList<>();
+
+    @Column(length = 255)
+    private String imageUrl;
 }

@@ -59,7 +59,12 @@
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 
-
+		<!-- AWS S3 -->
+		<dependency>
+			<groupId>com.amazonaws</groupId>
+			<artifactId>aws-java-sdk-s3</artifactId>
+			<version>1.12.753</version>
+		</dependency>
 
 		<!-- Springdoc OpenAPI for Swagger -->
 		<dependency>

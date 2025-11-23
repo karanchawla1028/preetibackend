@@ -54,4 +54,6 @@ public class ClientRequestDTO {
 
     @NotNull(message = "Show on home status cannot be null")
     private boolean showOnHome;
+
+    private String logoBase64;  // Base64 string from frontend
 }

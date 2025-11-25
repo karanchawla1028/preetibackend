@@ -49,47 +49,57 @@ public class InquiryServiceImpl implements InquiryService {
     @Override
     public Map<String, Object> createInquiry(InquiryRequestDTO requestDTO) {
         String slug = requestDTO.getSlug();
-        String pageType = null;
-        String pageName = null;
+        String pageType = "GENERAL";  // Default for homepage/contact form
+        String pageName = "Homepage"; // or "Contact Us", "General Inquiry" – as per your preference
 
-        // Check if slug belongs to a service
-        Optional<Services> serviceOpt = serviceRepository.findBySlug(slug);
-        if (serviceOpt.isPresent()) {
-            Services service = serviceOpt.get();
-            if (service.getDeleteStatus() == 2 && service.isActive() && service.isDisplayStatus()) {
-                pageType = "SERVICE";
-                pageName = service.getName();
-            }
-        }
-
-        // If not service, check blog
-        if (pageType == null) {
-            Optional<Blog> blogOpt = blogRepository.findBySlug(slug);
-            if (blogOpt.isPresent()) {
-                Blog blog = blogOpt.get();
-                if (blog.getDeleteStatus() == 2 && blog.isActive() && blog.isDisplayStatus()) {
-                    pageType = "BLOG";
-                    pageName = blog.getTitle();
+        // Only try to resolve slug if it's present and not blank
+        if (slug != null && !slug.trim().isEmpty()) {
+            // Check Service
+            Optional<Services> serviceOpt = serviceRepository.findBySlug(slug);
+            if (serviceOpt.isPresent()) {
+                Services service = serviceOpt.get();
+                if (service.getDeleteStatus() == 2 && service.isActive() && service.isDisplayStatus()) {
+                    pageType = "SERVICE";
+                    pageName = service.getName();
                 }
             }
-        }
 
-        // If not blog, check client
-        if (pageType == null) {
-            Optional<Clients> clientOpt = clientRepository.findBySlug(slug);
-            if (clientOpt.isPresent()) {
-                Clients client = clientOpt.get();
-                if (client.getDeleteStatus() == 2 && client.isActive() && client.isDisplayStatus()) {
-                    pageType = "CLIENT";
-                    pageName = client.getName();
+            // Check Blog if not already matched
+            if ("GENERAL".equals(pageType)) {
+                Optional<Blog> blogOpt = blogRepository.findBySlug(slug);
+                if (blogOpt.isPresent()) {
+                    Blog blog = blogOpt.get();
+                    if (blog.getDeleteStatus() == 2 && blog.isActive() && blog.isDisplayStatus()) {
+                        pageType = "BLOG";
+                        pageName = blog.getTitle();
+                    }
                 }
+            }
+
+            // Check Client if still GENERAL
+            if ("GENERAL".equals(pageType)) {
+                Optional<Clients> clientOpt = clientRepository.findBySlug(slug);
+                if (clientOpt.isPresent()) {
+                    Clients client = clientOpt.get();
+                    if (client.getDeleteStatus() == 2 && client.isActive() && client.isDisplayStatus()) {
+                        pageType = "CLIENT";
+                        pageName = client.getName();
+                    }
+                }
+            }
+
+            // If slug was provided but nothing matched → still allow, but keep as GENERAL with warning?
+            // Or optionally throw error if you want strict validation only when slug is sent
+            if ("GENERAL".equals(pageType) && slug != null && !slug.trim().isEmpty()) {
+                // Option 1: Allow it as general (recommended for UX)
+                pageName = "Unknown Page (Slug: " + slug + ")";
+
+                // Option 2: Throw exception if slug is invalid (stricter)
+                // throw new IllegalArgumentException("Invalid or inactive slug: " + slug);
             }
         }
 
-        if (pageType == null) {
-            throw new IllegalArgumentException("Invalid slug: " + slug + ". No matching active page found.");
-        }
-
+        // Create inquiry
         Inquiry inquiry = new Inquiry();
         inquiry.setUuid(UUID.randomUUID().toString());
         inquiry.setName(requestDTO.getName());
@@ -99,16 +109,14 @@ public class InquiryServiceImpl implements InquiryService {
         inquiry.setPhone(requestDTO.getPhone());
         inquiry.setPageName(pageName);
         inquiry.setPageType(pageType);
-        inquiry.setSlug(slug);
+        inquiry.setSlug(slug != null && !slug.trim().isEmpty() ? slug : null); // Save slug only if meaningful
         inquiry.setActive(true);
         inquiry.setDisplayStatus(true);
         inquiry.setDeleteStatus(2);
-        // createdBy is null for customer inquiries
 
         Inquiry savedInquiry = inquiryRepository.save(inquiry);
         return mapToResponseMap(savedInquiry);
     }
-
     @Override
     public Optional<Map<String, Object>> getInquiryById(Long id) {
         return inquiryRepository.findById(id)

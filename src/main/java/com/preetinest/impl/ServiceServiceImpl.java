@@ -64,12 +64,7 @@ public class ServiceServiceImpl implements ServiceService {
         service.setDeleteStatus(2);
         service.setCreatedBy(createdBy);
 
-        if (requestDTO.getIconBase64() != null && !requestDTO.getIconBase64().isBlank()) {
-            service.setIconUrl(s3Service.uploadBase64Image(requestDTO.getIconBase64()));
-        }
-        if (requestDTO.getImageBase64() != null && !requestDTO.getImageBase64().isBlank()) {
-            service.setImage(s3Service.uploadBase64Image(requestDTO.getImageBase64()));
-        }
+
 
         Services saved = serviceRepository.save(service);
         return mapToResponseMap(saved);
@@ -99,12 +94,7 @@ public class ServiceServiceImpl implements ServiceService {
         service.setDisplayStatus(requestDTO.isDisplayStatus());
         service.setShowOnHome(requestDTO.isShowOnHome());
 
-        if (requestDTO.getIconBase64() != null && !requestDTO.getIconBase64().isBlank()) {
-            service.setIconUrl(s3Service.uploadBase64Image(requestDTO.getIconBase64()));
-        }
-        if (requestDTO.getImageBase64() != null && !requestDTO.getImageBase64().isBlank()) {
-            service.setImage(s3Service.uploadBase64Image(requestDTO.getImageBase64()));
-        }
+
 
         Services updated = serviceRepository.save(service);
         return mapToResponseMap(updated);

@@ -18,10 +18,10 @@ public class ServiceRequestDTO {
     private Long subCategoryId;
 
     @Size(max = 255, message = "Icon URL must not exceed 255 characters")
-    private String iconUrl;
+    private String iconUrl;        // now direct URL (optional)
 
     @Size(max = 255, message = "Image must not exceed 255 characters")
-    private String image;
+    private String image;          // now direct URL (optional)
 
     @NotBlank(message = "Meta title is required")
     @Size(max = 255, message = "Meta title must not exceed 255 characters")
@@ -38,13 +38,8 @@ public class ServiceRequestDTO {
     private String slug;
 
     private boolean active = true;
-
     private boolean inactive = false;
-
     private boolean displayStatus = true;
-
     private boolean showOnHome = false;
 
-    private String iconBase64;    // base64 string for icon
-    private String imageBase64;   // base64 string for main image
 }

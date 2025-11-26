@@ -29,7 +29,9 @@ public class OpenAPIConfig {
             openAPI.addServersItem(new Server()
                     .url("http://localhost:8080")
                     .description("Local Development Server"));
-        } else {
+        }
+
+        else {
             openAPI.addServersItem(new Server()
                     .url("https://preetinest.ca")
                     .description("Production Server"));

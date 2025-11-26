@@ -1,13 +1,14 @@
 package com.preetinest.impl;
 
 import com.preetinest.config.S3Service;
-import com.preetinest.dto.ServiceFullResponseDTO;
-import com.preetinest.dto.ServiceRequestDTO;
+import com.preetinest.dto.*;
 import com.preetinest.dto.response.*;
 import com.preetinest.entity.*;
 import com.preetinest.repository.*;
 import com.preetinest.service.ServiceService;
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,12 +18,14 @@ import java.util.stream.Collectors;
 @Service
 public class ServiceServiceImpl implements ServiceService {
 
+    // ← FIXED: Logger now works!
+    private static final Logger log = LoggerFactory.getLogger(ServiceServiceImpl.class);
+
     private final ServiceRepository serviceRepository;
     private final SubCategoryRepository subCategoryRepository;
     private final UserRepository userRepository;
     private final ServiceDetailRepository serviceDetailRepository;
     private final ServiceFAQRepository serviceFAQRepository;
-
     @Autowired
     private S3Service s3Service;
 
@@ -42,64 +45,96 @@ public class ServiceServiceImpl implements ServiceService {
 
     @Override
     public Map<String, Object> createService(ServiceRequestDTO requestDTO, Long userId) {
-        validateSlug(requestDTO.getSlug(), null);
-        User createdBy = getAdminUser(userId);
+        log.info("=== CREATE SERVICE START ===");
+        log.info("Request DTO: {}", requestDTO);
+        log.info("Created by userId: {}", userId);
 
-        SubCategory subCategory = subCategoryRepository.findById(requestDTO.getSubCategoryId())
-                .filter(sc -> sc.getDeleteStatus() == 2)
-                .orElseThrow(() -> new EntityNotFoundException("Subcategory not found"));
+        try {
+            validateSlug(requestDTO.getSlug(), null);
+            User createdBy = getAdminUser(userId);
 
-        Services service = new Services();
-        service.setUuid(UUID.randomUUID().toString());
-        service.setName(requestDTO.getName());
-        service.setDescription(requestDTO.getDescription());
-        service.setSubCategory(subCategory);
-        service.setMetaTitle(requestDTO.getMetaTitle());
-        service.setMetaKeyword(requestDTO.getMetaKeyword());
-        service.setMetaDescription(requestDTO.getMetaDescription());
-        service.setSlug(requestDTO.getSlug());
-        service.setActive(requestDTO.isActive());
-        service.setDisplayStatus(requestDTO.isDisplayStatus());
-        service.setShowOnHome(requestDTO.isShowOnHome());
-        service.setDeleteStatus(2);
-        service.setCreatedBy(createdBy);
+            SubCategory subCategory = subCategoryRepository.findById(requestDTO.getSubCategoryId())
+                    .filter(sc -> sc.getDeleteStatus() == 2)
+                    .orElseThrow(() -> new EntityNotFoundException("Subcategory not found with ID: " + requestDTO.getSubCategoryId()));
 
+            Services service = new Services();
+            service.setUuid(UUID.randomUUID().toString());
+            service.setName(requestDTO.getName());
+            service.setDescription(requestDTO.getDescription());
+            service.setSubCategory(subCategory);
+            service.setMetaTitle(requestDTO.getMetaTitle());
+            service.setMetaKeyword(requestDTO.getMetaKeyword());
+            service.setMetaDescription(requestDTO.getMetaDescription());
+            service.setSlug(requestDTO.getSlug());
+            service.setActive(requestDTO.isActive());
+            service.setDisplayStatus(requestDTO.isDisplayStatus());
+            service.setShowOnHome(requestDTO.isShowOnHome());
+            service.setDeleteStatus(2);
+            service.setCreatedBy(createdBy);
 
+            // FIXED & LOGGED
+            service.setIconUrl(requestDTO.getIconUrl());
+            service.setImage(requestDTO.getImage());
+            log.info("IconUrl saved: {}", requestDTO.getIconUrl());
+            log.info("Image saved: {}", requestDTO.getImage());
 
-        Services saved = serviceRepository.save(service);
-        return mapToResponseMap(saved);
+            Services saved = serviceRepository.save(service);
+            log.info("Service created successfully with ID: {} and UUID: {}", saved.getId(), saved.getUuid());
+
+            Map<String, Object> response = mapToResponseMap(saved);
+            log.info("=== CREATE SERVICE SUCCESS ===");
+            return response;
+
+        } catch (Exception e) {
+            log.error("ERROR creating service: {}", e.getMessage(), e);
+            throw e; // re-throw so controller returns 400/500
+        }
     }
-
     @Override
     public Map<String, Object> updateService(Long id, ServiceRequestDTO requestDTO, Long userId) {
-        Services service = serviceRepository.findById(id)
-                .filter(s -> s.getDeleteStatus() == 2)
-                .orElseThrow(() -> new EntityNotFoundException("Service not found"));
+        log.info("=== UPDATE SERVICE ID: {} ===", id);
+        log.info("Update DTO: {}", requestDTO);
 
-        validateSlug(requestDTO.getSlug(), id);
-        getAdminUser(userId);
+        try {
+            Services service = serviceRepository.findById(id)
+                    .filter(s -> s.getDeleteStatus() == 2)
+                    .orElseThrow(() -> new EntityNotFoundException("Service not found with ID: " + id));
 
-        SubCategory subCategory = subCategoryRepository.findById(requestDTO.getSubCategoryId())
-                .filter(sc -> sc.getDeleteStatus() == 2)
-                .orElseThrow(() -> new EntityNotFoundException("Subcategory not found"));
+            validateSlug(requestDTO.getSlug(), id);
+            getAdminUser(userId);
 
-        service.setName(requestDTO.getName());
-        service.setDescription(requestDTO.getDescription());
-        service.setSubCategory(subCategory);
-        service.setMetaTitle(requestDTO.getMetaTitle());
-        service.setMetaKeyword(requestDTO.getMetaKeyword());
-        service.setMetaDescription(requestDTO.getMetaDescription());
-        service.setSlug(requestDTO.getSlug());
-        service.setActive(requestDTO.isActive());
-        service.setDisplayStatus(requestDTO.isDisplayStatus());
-        service.setShowOnHome(requestDTO.isShowOnHome());
+            SubCategory subCategory = subCategoryRepository.findById(requestDTO.getSubCategoryId())
+                    .filter(sc -> sc.getDeleteStatus() == 2)
+                    .orElseThrow(() -> new EntityNotFoundException("Subcategory not found with ID: " + requestDTO.getSubCategoryId()));
 
+            service.setName(requestDTO.getName());
+            service.setDescription(requestDTO.getDescription());
+            service.setSubCategory(subCategory);
+            service.setMetaTitle(requestDTO.getMetaTitle());
+            service.setMetaKeyword(requestDTO.getMetaKeyword());
+            service.setMetaDescription(requestDTO.getMetaDescription());
+            service.setSlug(requestDTO.getSlug());
+            service.setActive(requestDTO.isActive());
+            service.setDisplayStatus(requestDTO.isDisplayStatus());
+            service.setShowOnHome(requestDTO.isShowOnHome());
 
+            service.setIconUrl(requestDTO.getIconUrl());
+            service.setImage(requestDTO.getImage());
+            log.info("Updated IconUrl: {}", requestDTO.getIconUrl());
+            log.info("Updated Image: {}", requestDTO.getImage());
 
-        Services updated = serviceRepository.save(service);
-        return mapToResponseMap(updated);
+            Services updated = serviceRepository.save(service);
+            log.info("Service updated successfully | ID: {}", updated.getId());
+
+            Map<String, Object> response = mapToResponseMap(updated);
+            log.info("=== UPDATE SERVICE SUCCESS ===");
+            return response;
+
+        } catch (Exception e) {
+            log.error("ERROR updating service ID {}: {}", id, e.getMessage(), e);
+            throw e;
+        }
     }
-
     @Override
     public Optional<Map<String, Object>> getServiceById(Long id) {
         return serviceRepository.findById(id)
@@ -109,6 +144,7 @@ public class ServiceServiceImpl implements ServiceService {
 
     @Override
     public Optional<Map<String, Object>> getServiceByUuid(String uuid) {
+        log.info("Fetching service by UUID: {}", uuid);
         return serviceRepository.findByUuid(uuid)
                 .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus())
                 .map(this::mapToResponseMap);
@@ -116,9 +152,13 @@ public class ServiceServiceImpl implements ServiceService {
 
     @Override
     public Optional<Map<String, Object>> getServiceBySlug(String slug) {
+        log.info("Fetching service by slug: {}", slug);
         return serviceRepository.findBySlug(slug)
                 .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus())
-                .map(this::mapToResponseMap);
+                .map(service -> {
+                    log.info("Found service: {} | IconUrl: {} | Image: {}", service.getName(), service.getIconUrl(), service.getImage());
+                    return mapToResponseMap(service);
+                });
     }
 
     @Override
@@ -225,19 +265,29 @@ public class ServiceServiceImpl implements ServiceService {
     // ====================== HELPERS ======================
 
     private User getAdminUser(Long userId) {
-        if (userId == null) return null;
-        User user = userRepository.findById(userId)
-                .filter(u -> u.getDeleteStatus() == 2 && u.isEnable())
-                .orElseThrow(() -> new EntityNotFoundException("User not found"));
-        if (!"ADMIN".equalsIgnoreCase(user.getRole().getName())) {
-            throw new IllegalArgumentException("Only ADMIN can perform this action");
+        if (userId == null) {
+            log.warn("userId is null");
+            return null;
         }
-        return user;
+        return userRepository.findById(userId)
+                .filter(u -> u.getDeleteStatus() == 2 && u.isEnable())
+                .map(user -> {
+                    if (!"ADMIN".equalsIgnoreCase(user.getRole().getName())) {
+                        log.error("User {} is not ADMIN", userId);
+                        throw new IllegalArgumentException("Only ADMIN can perform this action");
+                    }
+                    log.info("Admin user verified: {}", user.getEmail());
+                    return user;
+                })
+                .orElseThrow(() -> {
+                    log.error("Admin user not found or disabled: {}", userId);
+                    return new EntityNotFoundException("Valid admin user not found");
+                });
     }
-
     private void validateSlug(String slug, Long excludeId) {
         serviceRepository.findBySlug(slug).ifPresent(existing -> {
             if (existing.getDeleteStatus() == 2 && (excludeId == null || !existing.getId().equals(excludeId))) {
+                log.error("Duplicate slug detected: '{}' (existing ID: {})", slug, existing.getId());
                 throw new IllegalArgumentException("Slug '" + slug + "' already exists");
             }
         });

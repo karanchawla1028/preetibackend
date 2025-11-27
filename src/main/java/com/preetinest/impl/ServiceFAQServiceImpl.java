@@ -42,6 +42,10 @@ public class ServiceFAQServiceImpl implements ServiceFAQService {
         log.info("Request DTO: {}", dto);
         log.info("Created by userId: {}", userId);
 
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
+
         try {
             User admin = getAdminUser(userId);
 
@@ -81,6 +85,10 @@ public class ServiceFAQServiceImpl implements ServiceFAQService {
     public Map<String, Object> updateServiceFAQ(Long id, ServiceFAQRequestDTO dto, Long userId) {
         log.info("=== UPDATE SERVICE FAQ ID: {} ===", id);
         log.info("Update DTO: {}", dto);
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
+
 
         try {
             ServiceFAQ faq = serviceFAQRepository.findById(id)
@@ -150,6 +158,10 @@ public class ServiceFAQServiceImpl implements ServiceFAQService {
     @Transactional
     public void softDeleteServiceFAQ(Long id, Long userId) {
         log.info("=== SOFT DELETE SERVICE FAQ ID: {} by userId: {} ===", id, userId);
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
 
         try {
             ServiceFAQ faq = serviceFAQRepository.findById(id)

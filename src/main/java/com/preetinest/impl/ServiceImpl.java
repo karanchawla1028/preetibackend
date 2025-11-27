@@ -48,6 +48,10 @@ public class ServiceImpl implements ServiceService {
         log.info("=== CREATE SERVICE START ===");
         log.info("Request: {}", requestDTO);
 
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
+
         validateSlug(requestDTO.getSlug(), null);
         User createdBy = getAdminUser(userId);
 
@@ -95,6 +99,10 @@ public class ServiceImpl implements ServiceService {
     @Override
     public Map<String, Object> updateService(Long id, ServiceRequestDTO requestDTO, Long userId) {
         log.info("=== UPDATE SERVICE ID: {} ===", id);
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
 
         Services service = serviceRepository.findById(id)
                 .filter(s -> s.getDeleteStatus() == 2)

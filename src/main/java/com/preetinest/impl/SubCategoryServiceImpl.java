@@ -37,6 +37,10 @@ public class SubCategoryServiceImpl implements SubCategoryService {
 
     @Override
     public Map<String, Object> createSubCategory(SubCategoryRequestDTO requestDTO, Long userId) {
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a sub category");
+        }
         Optional<SubCategory> existingSubCategory = subCategoryRepository.findBySlug(requestDTO.getSlug());
         if (existingSubCategory.isPresent() && existingSubCategory.get().getDeleteStatus() == 2) {
             throw new IllegalArgumentException("Subcategory with slug " + requestDTO.getSlug() + " already exists");
@@ -105,6 +109,10 @@ public class SubCategoryServiceImpl implements SubCategoryService {
 
     @Override
     public Map<String, Object> updateSubCategory(Long id, SubCategoryRequestDTO requestDTO, Long userId) {
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
         SubCategory subCategory = subCategoryRepository.findById(id)
                 .filter(sc -> sc.getDeleteStatus() == 2)
                 .orElseThrow(() -> new EntityNotFoundException("Subcategory not found with id: " + id));

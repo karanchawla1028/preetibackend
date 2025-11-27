@@ -47,6 +47,9 @@ public class BlogServiceImpl implements BlogService {
     @Override
     @Transactional
     public Map<String, Object> createBlog(BlogRequestDTO requestDTO, Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
         log.info("=== CREATE BLOG START ===");
 
         validateSlug(requestDTO.getSlug(), null);
@@ -95,6 +98,10 @@ public class BlogServiceImpl implements BlogService {
     @Override
     @Transactional
     public Map<String, Object> updateBlog(Long id, BlogRequestDTO requestDTO, Long userId) {
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
         log.info("=== UPDATE BLOG ID: {} ===", id);
 
         Blog blog = blogRepository.findById(id)

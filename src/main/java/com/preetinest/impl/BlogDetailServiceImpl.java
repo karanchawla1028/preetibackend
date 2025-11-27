@@ -33,9 +33,17 @@ public class BlogDetailServiceImpl implements BlogDetailService {
     @Override
     @Transactional
     public Map<String, Object> createBlogDetail(BlogDetailRequestDTO dto, Long userId) {
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
         log.info("=== CREATE BLOG DETAIL START ===");
         log.info("Request DTO: {}", dto);
         log.info("Created by userId: {}", userId);
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
+
 
         try {
             User admin = getAdminUser(userId);
@@ -86,6 +94,14 @@ public class BlogDetailServiceImpl implements BlogDetailService {
     @Override
     @Transactional
     public Map<String, Object> updateBlogDetail(Long id, BlogDetailRequestDTO dto, Long userId) {
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
         log.info("=== UPDATE BLOG DETAIL ID: {} ===", id);
         log.info("Update DTO: {}", dto);
 
@@ -164,6 +180,10 @@ public class BlogDetailServiceImpl implements BlogDetailService {
     @Override
     @Transactional
     public void softDeleteBlogDetail(Long id, Long userId) {
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
         log.info("=== SOFT DELETE BLOG DETAIL ID: {} by userId: {} ===", id, userId);
 
         try {

@@ -36,6 +36,10 @@ public class BlogFAQServiceImpl implements BlogFAQService {
         log.info("Question: {}", dto.getQuestion());
         log.info("Blog ID: {} | Created by userId: {}", dto.getBlogId(), userId);
 
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
+
         try {
             User admin = getAdminUser(userId);
 
@@ -76,6 +80,10 @@ public class BlogFAQServiceImpl implements BlogFAQService {
     public Map<String, Object> updateBlogFAQ(Long id, BlogFAQRequestDTO dto, Long userId) {
         log.info("=== UPDATE BLOG FAQ ID: {} ===", id);
         log.info("Updated Question: {}", dto.getQuestion());
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
 
         try {
             BlogFAQ faq = blogFAQRepository.findById(id)

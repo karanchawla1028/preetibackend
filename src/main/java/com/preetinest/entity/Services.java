@@ -37,10 +37,10 @@ public class Services {
     private SubCategory subCategory;
 
     @Column(length = 255)
-    private String iconUrl;
+    private String image;           // ← keeps the S3 filename only (e.g. abc123.png)
 
-    @Column(length = 255)
-    private String image;
+    @Column(length = 500)
+    private String imageUrl;        // ← NEW: full public URL
 
     @Column(length = 255, nullable = false)
     private String metaTitle;

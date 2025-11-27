@@ -16,10 +16,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-public class ServiceServiceImpl implements ServiceService {
+public class ServiceImpl implements ServiceService {
 
     // ← FIXED: Logger now works!
-    private static final Logger log = LoggerFactory.getLogger(ServiceServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ServiceImpl.class);
 
     private final ServiceRepository serviceRepository;
     private final SubCategoryRepository subCategoryRepository;
@@ -30,7 +30,7 @@ public class ServiceServiceImpl implements ServiceService {
     private S3Service s3Service;
 
     @Autowired
-    public ServiceServiceImpl(
+    public ServiceImpl(
             ServiceRepository serviceRepository,
             SubCategoryRepository subCategoryRepository,
             UserRepository userRepository,
@@ -46,94 +46,149 @@ public class ServiceServiceImpl implements ServiceService {
     @Override
     public Map<String, Object> createService(ServiceRequestDTO requestDTO, Long userId) {
         log.info("=== CREATE SERVICE START ===");
-        log.info("Request DTO: {}", requestDTO);
-        log.info("Created by userId: {}", userId);
+        log.info("Request: {}", requestDTO);
 
-        try {
-            validateSlug(requestDTO.getSlug(), null);
-            User createdBy = getAdminUser(userId);
+        validateSlug(requestDTO.getSlug(), null);
+        User createdBy = getAdminUser(userId);
 
-            SubCategory subCategory = subCategoryRepository.findById(requestDTO.getSubCategoryId())
-                    .filter(sc -> sc.getDeleteStatus() == 2)
-                    .orElseThrow(() -> new EntityNotFoundException("Subcategory not found with ID: " + requestDTO.getSubCategoryId()));
+        SubCategory subCategory = subCategoryRepository.findById(requestDTO.getSubCategoryId())
+                .filter(sc -> sc.getDeleteStatus() == 2)
+                .orElseThrow(() -> new EntityNotFoundException("Subcategory not found: " + requestDTO.getSubCategoryId()));
 
-            Services service = new Services();
-            service.setUuid(UUID.randomUUID().toString());
-            service.setName(requestDTO.getName());
-            service.setDescription(requestDTO.getDescription());
-            service.setSubCategory(subCategory);
-            service.setMetaTitle(requestDTO.getMetaTitle());
-            service.setMetaKeyword(requestDTO.getMetaKeyword());
-            service.setMetaDescription(requestDTO.getMetaDescription());
-            service.setSlug(requestDTO.getSlug());
-            service.setActive(requestDTO.isActive());
-            service.setDisplayStatus(requestDTO.isDisplayStatus());
-            service.setShowOnHome(requestDTO.isShowOnHome());
-            service.setDeleteStatus(2);
-            service.setCreatedBy(createdBy);
+        Services service = new Services();
+        service.setUuid(UUID.randomUUID().toString());
+        service.setName(requestDTO.getName());
+        service.setDescription(requestDTO.getDescription());
+        service.setSubCategory(subCategory);
+        service.setMetaTitle(requestDTO.getMetaTitle());
+        service.setMetaKeyword(requestDTO.getMetaKeyword());
+        service.setMetaDescription(requestDTO.getMetaDescription());
+        service.setSlug(requestDTO.getSlug());
+        service.setActive(requestDTO.isActive());
+        service.setDisplayStatus(requestDTO.isDisplayStatus());
+        service.setShowOnHome(requestDTO.isShowOnHome());
+        service.setDeleteStatus(2);
+        service.setCreatedBy(createdBy);
 
-            // FIXED & LOGGED
-            service.setIconUrl(requestDTO.getIconUrl());
+        // Handle image upload
+        if (requestDTO.getImage() != null && requestDTO.getImage().startsWith("data:image")) {
+            String fileName = s3Service.uploadBase64Image(requestDTO.getImage());
+            String fullUrl = s3Service.getFullUrl(fileName);
+
+            service.setImage(fileName);      // e.g. abc123.png
+            service.setImageUrl(fullUrl);    // e.g. https://preetinest.s3.../abc123.png
+
+            log.info("Uploaded new image → filename: {}, url: {}", fileName, fullUrl);
+        } else if (requestDTO.getImage() != null && !requestDTO.getImage().isBlank()) {
+            // Already a URL or filename (rare case)
             service.setImage(requestDTO.getImage());
-            log.info("IconUrl saved: {}", requestDTO.getIconUrl());
-            log.info("Image saved: {}", requestDTO.getImage());
-
-            Services saved = serviceRepository.save(service);
-            log.info("Service created successfully with ID: {} and UUID: {}", saved.getId(), saved.getUuid());
-
-            Map<String, Object> response = mapToResponseMap(saved);
-            log.info("=== CREATE SERVICE SUCCESS ===");
-            return response;
-
-        } catch (Exception e) {
-            log.error("ERROR creating service: {}", e.getMessage(), e);
-            throw e; // re-throw so controller returns 400/500
+            service.setImageUrl(s3Service.getFullUrl(requestDTO.getImage()));
         }
+
+        Services saved = serviceRepository.save(service);
+        log.info("Service created → ID: {}, UUID: {}", saved.getId(), saved.getUuid());
+
+        Map<String, Object> response = mapToResponseMap(saved);
+        log.info("=== CREATE SERVICE SUCCESS ===");
+        return response;
     }
     @Override
     public Map<String, Object> updateService(Long id, ServiceRequestDTO requestDTO, Long userId) {
         log.info("=== UPDATE SERVICE ID: {} ===", id);
-        log.info("Update DTO: {}", requestDTO);
 
-        try {
-            Services service = serviceRepository.findById(id)
-                    .filter(s -> s.getDeleteStatus() == 2)
-                    .orElseThrow(() -> new EntityNotFoundException("Service not found with ID: " + id));
+        Services service = serviceRepository.findById(id)
+                .filter(s -> s.getDeleteStatus() == 2)
+                .orElseThrow(() -> new EntityNotFoundException("Service not found: " + id));
 
-            validateSlug(requestDTO.getSlug(), id);
-            getAdminUser(userId);
+        validateSlug(requestDTO.getSlug(), id);
+        getAdminUser(userId);
 
-            SubCategory subCategory = subCategoryRepository.findById(requestDTO.getSubCategoryId())
-                    .filter(sc -> sc.getDeleteStatus() == 2)
-                    .orElseThrow(() -> new EntityNotFoundException("Subcategory not found with ID: " + requestDTO.getSubCategoryId()));
+        SubCategory subCategory = subCategoryRepository.findById(requestDTO.getSubCategoryId())
+                .filter(sc -> sc.getDeleteStatus() == 2)
+                .orElseThrow(() -> new EntityNotFoundException("Subcategory not found"));
 
-            service.setName(requestDTO.getName());
-            service.setDescription(requestDTO.getDescription());
-            service.setSubCategory(subCategory);
-            service.setMetaTitle(requestDTO.getMetaTitle());
-            service.setMetaKeyword(requestDTO.getMetaKeyword());
-            service.setMetaDescription(requestDTO.getMetaDescription());
-            service.setSlug(requestDTO.getSlug());
-            service.setActive(requestDTO.isActive());
-            service.setDisplayStatus(requestDTO.isDisplayStatus());
-            service.setShowOnHome(requestDTO.isShowOnHome());
+        service.setName(requestDTO.getName());
+        service.setDescription(requestDTO.getDescription());
+        service.setSubCategory(subCategory);
+        service.setMetaTitle(requestDTO.getMetaTitle());
+        service.setMetaKeyword(requestDTO.getMetaKeyword());
+        service.setMetaDescription(requestDTO.getMetaDescription());
+        service.setSlug(requestDTO.getSlug());
+        service.setActive(requestDTO.isActive());
+        service.setDisplayStatus(requestDTO.isDisplayStatus());
+        service.setShowOnHome(requestDTO.isShowOnHome());
 
-            service.setIconUrl(requestDTO.getIconUrl());
-            service.setImage(requestDTO.getImage());
-            log.info("Updated IconUrl: {}", requestDTO.getIconUrl());
-            log.info("Updated Image: {}", requestDTO.getImage());
+        // Handle image update
+        if (requestDTO.getImage() != null && requestDTO.getImage().startsWith("data:image")) {
+            String fileName = s3Service.uploadBase64Image(requestDTO.getImage());
+            String fullUrl = s3Service.getFullUrl(fileName);
 
-            Services updated = serviceRepository.save(service);
-            log.info("Service updated successfully | ID: {}", updated.getId());
+            service.setImage(fileName);
+            service.setImageUrl(fullUrl);
 
-            Map<String, Object> response = mapToResponseMap(updated);
-            log.info("=== UPDATE SERVICE SUCCESS ===");
-            return response;
-
-        } catch (Exception e) {
-            log.error("ERROR updating service ID {}: {}", id, e.getMessage(), e);
-            throw e;
+            log.info("Updated image → new filename: {}, url: {}", fileName, fullUrl);
         }
+        // If no new image, keep old ones
+
+        Services updated = serviceRepository.save(service);
+        Map<String, Object> response = mapToResponseMap(updated);
+        log.info("=== UPDATE SERVICE SUCCESS ===");
+        return response;
+    }
+
+    // ====================== MAPPERS ======================
+
+    private ServiceResponseDTO mapToServiceResponseDTO(Services service) {
+        ServiceResponseDTO dto = new ServiceResponseDTO();
+        dto.setId(service.getId());
+        dto.setUuid(service.getUuid());
+        dto.setName(service.getName());
+        dto.setDescription(service.getDescription());
+        dto.setSubCategoryId(service.getSubCategory().getId());
+        dto.setSubCategoryName(service.getSubCategory().getName());
+        dto.setCategoryId(service.getSubCategory().getCategory().getId());
+        dto.setCategoryName(service.getSubCategory().getCategory().getName());
+
+        dto.setImage(service.getImage());                    // filename
+        dto.setImageUrl(service.getImageUrl() != null ? service.getImageUrl() : s3Service.getFullUrl(service.getImage()));
+
+        dto.setMetaTitle(service.getMetaTitle());
+        dto.setMetaKeyword(service.getMetaKeyword());
+        dto.setMetaDescription(service.getMetaDescription());
+        dto.setSlug(service.getSlug());
+        dto.setActive(service.isActive());
+        dto.setDisplayStatus(service.isDisplayStatus());
+        dto.setShowOnHome(service.isShowOnHome());
+        dto.setCreatedAt(service.getCreatedAt());
+        dto.setUpdatedAt(service.getUpdatedAt());
+        dto.setCreatedById(service.getCreatedBy() != null ? service.getCreatedBy().getId() : null);
+        return dto;
+    }
+
+    private Map<String, Object> mapToResponseMap(Services service) {
+        ServiceResponseDTO dto = mapToServiceResponseDTO(service);
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", dto.getId());
+        map.put("uuid", dto.getUuid());
+        map.put("name", dto.getName());
+        map.put("description", dto.getDescription());
+        map.put("subCategoryId", dto.getSubCategoryId());
+        map.put("subCategoryName", dto.getSubCategoryName());
+        map.put("categoryId", dto.getCategoryId());
+        map.put("categoryName", dto.getCategoryName());
+        map.put("image", dto.getImage());
+        map.put("imageUrl", dto.getImageUrl());
+        map.put("metaTitle", dto.getMetaTitle());
+        map.put("metaKeyword", dto.getMetaKeyword());
+        map.put("metaDescription", dto.getMetaDescription());
+        map.put("slug", dto.getSlug());
+        map.put("active", dto.isActive());
+        map.put("displayStatus", dto.isDisplayStatus());
+        map.put("showOnHome", dto.isShowOnHome());
+        map.put("createdAt", dto.getCreatedAt());
+        map.put("updatedAt", dto.getUpdatedAt());
+        map.put("createdById", dto.getCreatedById());
+        return map;
     }
     @Override
     public Optional<Map<String, Object>> getServiceById(Long id) {
@@ -156,7 +211,7 @@ public class ServiceServiceImpl implements ServiceService {
         return serviceRepository.findBySlug(slug)
                 .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus())
                 .map(service -> {
-                    log.info("Found service: {} | IconUrl: {} | Image: {}", service.getName(), service.getIconUrl(), service.getImage());
+                    log.info("Found service: {} | IconUrl: {} | Image: {}", service.getName(), service.getImage());
                     return mapToResponseMap(service);
                 });
     }
@@ -200,7 +255,6 @@ public class ServiceServiceImpl implements ServiceService {
         response.put("subCategoryName", dto.getSubCategoryName());
         response.put("categoryId", dto.getCategoryId());
         response.put("categoryName", dto.getCategoryName());
-        response.put("iconUrl", dto.getIconUrl());
         response.put("image", dto.getImage());
         response.put("metaTitle", dto.getMetaTitle());
         response.put("metaKeyword", dto.getMetaKeyword());
@@ -293,60 +347,6 @@ public class ServiceServiceImpl implements ServiceService {
         });
     }
 
-    // ====================== MAPPERS (FULL S3 URLS) ======================
-
-    private ServiceResponseDTO mapToServiceResponseDTO(Services service) {
-        ServiceResponseDTO dto = new ServiceResponseDTO();
-        dto.setId(service.getId());
-        dto.setUuid(service.getUuid());
-        dto.setName(service.getName());
-        dto.setDescription(service.getDescription());
-        dto.setSubCategoryId(service.getSubCategory().getId());
-        dto.setSubCategoryName(service.getSubCategory().getName());
-        dto.setCategoryId(service.getSubCategory().getCategory().getId());
-        dto.setCategoryName(service.getSubCategory().getCategory().getName());
-
-        dto.setIconUrl(s3Service.getFullUrl(service.getIconUrl()));
-        dto.setImage(s3Service.getFullUrl(service.getImage()));
-
-        dto.setMetaTitle(service.getMetaTitle());
-        dto.setMetaKeyword(service.getMetaKeyword());
-        dto.setMetaDescription(service.getMetaDescription());
-        dto.setSlug(service.getSlug());
-        dto.setActive(service.isActive());
-        dto.setDisplayStatus(service.isDisplayStatus());
-        dto.setShowOnHome(service.isShowOnHome());
-        dto.setCreatedAt(service.getCreatedAt());
-        dto.setUpdatedAt(service.getUpdatedAt());
-        dto.setCreatedById(service.getCreatedBy() != null ? service.getCreatedBy().getId() : null);
-        return dto;
-    }
-
-    private Map<String, Object> mapToResponseMap(Services service) {
-        ServiceResponseDTO dto = mapToServiceResponseDTO(service);
-        Map<String, Object> map = new HashMap<>();
-        map.put("id", dto.getId());
-        map.put("uuid", dto.getUuid());
-        map.put("name", dto.getName());
-        map.put("description", dto.getDescription());
-        map.put("subCategoryId", dto.getSubCategoryId());
-        map.put("subCategoryName", dto.getSubCategoryName());
-        map.put("categoryId", dto.getCategoryId());
-        map.put("categoryName", dto.getCategoryName());
-        map.put("iconUrl", dto.getIconUrl());
-        map.put("image", dto.getImage());
-        map.put("metaTitle", dto.getMetaTitle());
-        map.put("metaKeyword", dto.getMetaKeyword());
-        map.put("metaDescription", dto.getMetaDescription());
-        map.put("slug", dto.getSlug());
-        map.put("active", dto.isActive());
-        map.put("displayStatus", dto.isDisplayStatus());
-        map.put("showOnHome", dto.isShowOnHome());
-        map.put("createdAt", dto.getCreatedAt());
-        map.put("updatedAt", dto.getUpdatedAt());
-        map.put("createdById", dto.getCreatedById());
-        return map;
-    }
 
     private ServiceDetailResponseDTO mapToServiceDetailResponseDTO(ServiceDetail detail) {
         ServiceDetailResponseDTO dto = new ServiceDetailResponseDTO();

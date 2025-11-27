@@ -1,5 +1,8 @@
+// src/main/java/com/preetinest/dto/request/BlogRequestDTO.java
+
 package com.preetinest.dto.request;
 
+import jakarta.persistence.Column;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -7,6 +10,7 @@ import lombok.Data;
 
 @Data
 public class BlogRequestDTO {
+
     @NotBlank(message = "Title is mandatory")
     @Size(max = 255, message = "Title must not exceed 255 characters")
     private String title;
@@ -28,8 +32,12 @@ public class BlogRequestDTO {
     @Size(max = 100, message = "Slug must not exceed 100 characters")
     private String slug;
 
-    @Size(max = 255, message = "Thumbnail URL must not exceed 255 characters")
-    private String thumbnailUrl;
+    /**
+     * Only used when updating without changing image
+     * (e.g. keep existing image)
+     */
+    @Size(max = 255)
+    private String image; // filename only (e.g. abc123.png) — for update without re-upload
 
     @NotNull(message = "Active status is mandatory")
     private Boolean active;
@@ -43,9 +51,4 @@ public class BlogRequestDTO {
     private Long subCategoryId;
 
     private Long serviceId;
-
-    private String thumbnailImageBase64;
-
-
-
 }

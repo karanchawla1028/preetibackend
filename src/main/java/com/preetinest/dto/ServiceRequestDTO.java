@@ -17,11 +17,8 @@ public class ServiceRequestDTO {
     @NotBlank(message = "Subcategory ID is required")
     private Long subCategoryId;
 
-    @Size(max = 255, message = "Icon URL must not exceed 255 characters")
-    private String iconUrl;        // now direct URL (optional)
-
     @Size(max = 255, message = "Image must not exceed 255 characters")
-    private String image;          // now direct URL (optional)
+    private String image;
 
     @NotBlank(message = "Meta title is required")
     @Size(max = 255, message = "Meta title must not exceed 255 characters")

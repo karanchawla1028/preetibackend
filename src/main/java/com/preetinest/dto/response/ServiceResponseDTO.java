@@ -19,8 +19,8 @@ public class ServiceResponseDTO {
     private String subCategoryName;
     private Long categoryId;
     private String categoryName;
-    private String iconUrl;
-    private String image;
+    private String image;        // base64 or existing filename (when updating)
+    private String imageUrl;     // you can ignore this on input
     private String metaTitle;
     private String metaKeyword;
     private String metaDescription;

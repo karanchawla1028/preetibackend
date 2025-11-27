@@ -1,3 +1,4 @@
+// src/main/java/com/preetinest/entity/Blog.java
 package com.preetinest.entity;
 
 import jakarta.persistence.*;
@@ -49,16 +50,22 @@ public class Blog {
     @Column(length = 255)
     private String thumbnailUrl;
 
+    @Column(length = 255)
+    private String image;
+
+    @Column(length = 500)
+    private String imageUrl;
+
     @Column(nullable = false, columnDefinition = "boolean default true")
     private boolean active = true;
 
-    @Column(nullable = false, columnDefinition = "boolean default true COMMENT 'display status'")
+    @Column(nullable = false, columnDefinition = "boolean default true")
     private boolean displayStatus = true;
 
-    @Column(nullable = false, columnDefinition = "boolean default false COMMENT 'show on home'")
+    @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean showOnHome = false;
 
-    @Column(nullable = false, columnDefinition = "integer default 2 COMMENT '1 deleted, 2 not deleted'")
+    @Column(nullable = false, columnDefinition = "integer default 2")
     private int deleteStatus = 2;
 
     @CreatedDate
@@ -87,7 +94,4 @@ public class Blog {
 
     @OneToMany(mappedBy = "blog", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BlogDetail> blogDetails = new ArrayList<>();
-
-    @Column(length = 255)
-    private String imageUrl;
 }

@@ -1,59 +1,52 @@
+// src/main/java/com/preetinest/dto/request/ClientRequestDTO.java
+
 package com.preetinest.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 
 @Data
-@Getter
-@Setter
 public class ClientRequestDTO {
 
-    @NotBlank(message = "Name cannot be blank")
-    @Size(max = 100, message = "Name must not exceed 100 characters")
+    @NotBlank(message = "Name is required")
+    @Size(max = 100)
     private String name;
 
-    @NotBlank(message = "Client type cannot be blank")
-    @Size(max = 100, message = "Client type must not exceed 100 characters")
+    @NotBlank(message = "Client type is required")
+    @Size(max = 100)
     private String clientType;
 
-    @NotBlank(message = "Description cannot be blank")
+    @NotBlank(message = "Description is required")
     private String description;
 
-    @Size(max = 255, message = "Contact email must not exceed 255 characters")
+    @Size(max = 255)
     private String contactEmail;
 
-    @Size(max = 255, message = "Contact phone must not exceed 255 characters")
+    @Size(max = 255)
     private String contactPhone;
 
-    @Size(max = 255, message = "Logo URL must not exceed 255 characters")
-    private String logoUrl;
-
-    @NotBlank(message = "Meta title cannot be blank")
-    @Size(max = 255, message = "Meta title must not exceed 255 characters")
+    @NotBlank(message = "Meta title is required")
+    @Size(max = 255)
     private String metaTitle;
 
-    @NotBlank(message = "Meta keyword cannot be blank")
+    @NotBlank(message = "Meta keyword is required")
     private String metaKeyword;
 
-    @NotBlank(message = "Meta description cannot be blank")
+    @NotBlank(message = "Meta description is required")
     private String metaDescription;
 
-    @NotBlank(message = "Slug cannot be blank")
-    @Size(max = 100, message = "Slug must not exceed 100 characters")
+    @NotBlank(message = "Slug is required")
+    @Size(max = 100)
     private String slug;
 
-    @NotNull(message = "Active status cannot be null")
-    private boolean active;
+    @NotNull
+    private Boolean active;
 
-    @NotNull(message = "Display status cannot be null")
-    private boolean displayStatus;
+    @NotNull
+    private Boolean displayStatus;
 
-    @NotNull(message = "Show on home status cannot be null")
-    private boolean showOnHome;
+    @NotNull
+    private Boolean showOnHome;
 
-    private String logoBase64;  // Base64 string from frontend
+    private String logo; // filename only (e.g. "client-logo-123.png")
 }

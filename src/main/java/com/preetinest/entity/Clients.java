@@ -1,3 +1,5 @@
+// src/main/java/com/preetinest/entity/Clients.java
+
 package com.preetinest.entity;
 
 import jakarta.persistence.*;
@@ -9,7 +11,6 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "clients", uniqueConstraints = @UniqueConstraint(columnNames = {"uuid", "slug"}))
@@ -24,7 +25,7 @@ public class Clients {
     private Long id;
 
     @Column(unique = true, length = 100, nullable = false)
-    private String uuid = UUID.randomUUID().toString();
+    private String uuid = java.util.UUID.randomUUID().toString();
 
     @Column(length = 100, nullable = false)
     private String name;
@@ -41,7 +42,12 @@ public class Clients {
     @Column(length = 255)
     private String contactPhone;
 
+    // Stores filename only (e.g. abc123.png)
     @Column(length = 255)
+    private String logo;
+
+    // NEW: Full public S3 URL
+    @Column(length = 500)
     private String logoUrl;
 
     @Column(length = 255, nullable = false)
@@ -59,13 +65,13 @@ public class Clients {
     @Column(nullable = false, columnDefinition = "boolean default true")
     private boolean active = true;
 
-    @Column(nullable = false, columnDefinition = "boolean default true COMMENT 'display status'")
+    @Column(nullable = false, columnDefinition = "boolean default true")
     private boolean displayStatus = true;
 
-    @Column(nullable = false, columnDefinition = "boolean default false COMMENT 'show on home'")
+    @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean showOnHome = false;
 
-    @Column(nullable = false, columnDefinition = "integer default 2 COMMENT '1 deleted, 2 not deleted'")
+    @Column(nullable = false, columnDefinition = "integer default 2")
     private int deleteStatus = 2;
 
     @CreatedDate

@@ -30,21 +30,31 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public CategoryResponseDTO createCategory(CategoryRequestDTO requestDTO, Long userId) {
-        Optional<Category> existingCategory = categoryRepository.findBySlug(requestDTO.getSlug());
-        if (existingCategory.isPresent() && existingCategory.get().getDeleteStatus() == 2) {
-            throw new IllegalArgumentException("Category with slug " + requestDTO.getSlug() + " already exists");
+        // 1. userId is mandatory
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
         }
 
-        User createdBy = null;
-        if (userId != null) {
-            createdBy = userRepository.findById(userId)
-                    .filter(u -> u.getDeleteStatus() == 2 && u.isEnable())
-                    .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
-            if (!"ADMIN".equalsIgnoreCase(createdBy.getRole().getName())) {
-                throw new IllegalArgumentException("Only ADMIN users can create categories");
-            }
+        // 2. Check slug uniqueness (soft-deleted ones are ignored since deleteStatus=1)
+        categoryRepository.findBySlug(requestDTO.getSlug())
+                .ifPresent(existing -> {
+                    if (existing.getDeleteStatus() == 2) {
+                        throw new IllegalArgumentException("Category with slug '" + requestDTO.getSlug() + "' already exists");
+                    }
+                });
+
+        // 3. Fetch user: must exist, be active, not deleted, and be ADMIN
+        User createdBy = userRepository.findById(userId)
+                .filter(u -> u.getDeleteStatus() == 2)        // not deleted
+                .filter(User::isEnable)                        // must be enabled/active
+                .orElseThrow(() -> new EntityNotFoundException("Active user not found with id: " + userId));
+
+        // 4. Check role
+        if (createdBy.getRole() == null || !"ADMIN".equalsIgnoreCase(createdBy.getRole().getName())) {
+            throw new IllegalArgumentException("Only users with ADMIN role can create categories");
         }
 
+        // 5. Create category
         Category category = new Category();
         category.setUuid(UUID.randomUUID().toString());
         category.setName(requestDTO.getName());
@@ -54,13 +64,12 @@ public class CategoryServiceImpl implements CategoryService {
         category.setMetaDescription(requestDTO.getMetaDescription());
         category.setSlug(requestDTO.getSlug());
         category.setActive(requestDTO.isActive());
-        category.setDeleteStatus(2);
+        category.setDeleteStatus(2);        // not deleted
         category.setCreatedBy(createdBy);
 
         Category savedCategory = categoryRepository.save(category);
         return mapToResponseDTO(savedCategory);
     }
-
     @Override
     public Optional<CategoryResponseDTO> getCategoryById(Long id) {
         return categoryRepository.findById(id)
@@ -92,6 +101,11 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public CategoryResponseDTO updateCategory(Long id, CategoryRequestDTO requestDTO, Long userId) {
+
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID is required to create a category");
+        }
+
         Category category = categoryRepository.findById(id)
                 .filter(c -> c.getDeleteStatus() == 2)
                 .orElseThrow(() -> new EntityNotFoundException("Category not found with id: " + id));

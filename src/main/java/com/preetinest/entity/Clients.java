@@ -1,0 +1,88 @@
+// src/main/java/com/preetinest/entity/Clients.java
+
+package com.preetinest.entity;
+
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "clients", uniqueConstraints = @UniqueConstraint(columnNames = {"uuid", "slug"}))
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
+public class Clients {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(unique = true, length = 100, nullable = false)
+    private String uuid = java.util.UUID.randomUUID().toString();
+
+    @Column(length = 100, nullable = false)
+    private String name;
+
+    @Column(length = 100, nullable = false)
+    private String clientType;
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String description;
+
+    @Column(length = 255)
+    private String contactEmail;
+
+    @Column(length = 255)
+    private String contactPhone;
+
+    // Stores filename only (e.g. abc123.png)
+    @Column(length = 255)
+    private String logo;
+
+    // NEW: Full public S3 URL
+    @Column(length = 500)
+    private String logoUrl;
+
+    @Column(length = 255, nullable = false)
+    private String metaTitle;
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String metaKeyword;
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String metaDescription;
+
+    @Column(length = 100, nullable = false)
+    private String slug;
+
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean active = true;
+
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean displayStatus = true;
+
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean showOnHome = false;
+
+    @Column(nullable = false, columnDefinition = "integer default 2")
+    private int deleteStatus = 2;
+
+    @CreatedDate
+    @Column(updatable = false, nullable = false)
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by_id")
+    private User createdBy;
+}

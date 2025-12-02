@@ -21,4 +21,8 @@ public interface ServiceService {
     Optional<ServiceFullResponseDTO> getFullServiceBySlug(String slug);
 
 
+    Map<Long, Map<String, Object>> getServicesGroupedByCategoryMinimal();
+
+
+    List<Map<String, Object>> getActiveServicesBySubCategoryId(Long subCategoryId);
 }

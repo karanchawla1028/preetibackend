@@ -189,4 +189,24 @@ public class SubCategoryServiceImpl implements SubCategoryService {
         response.put("categoryId", subCategory.getCategory().getId());
         return response;
     }
+
+
+
+    @Override
+    public List<Map<String, Object>> getActiveSubCategoriesByCategoryId(Long categoryId) {
+        return subCategoryRepository.findActiveByCategoryId(categoryId)
+                .stream()
+                .map(this::mapToMinimalResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    private Map<String, Object> mapToMinimalResponseDTO(SubCategory subCategory) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", subCategory.getId());
+        map.put("name", subCategory.getName());
+        map.put("slug", subCategory.getSlug());
+        map.put("uuid", subCategory.getUuid());
+        return map;
+    }
+
 }

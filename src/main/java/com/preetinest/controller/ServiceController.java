@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -140,5 +141,31 @@ public class ServiceController {
         return serviceService.getFullServiceBySlug(slug)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/grouped-by-category")
+    @Operation(summary = "Get services grouped by Category (minimal response)",
+            description = "Returns map with categoryId → {name + list of services (id & name only)}")
+    @ApiResponse(responseCode = "200", description = "Grouped services by category")
+    public ResponseEntity<Map<Long, Map<String, Object>>> getServicesGroupedByCategoryMinimal() {
+        return ResponseEntity.ok(serviceService.getServicesGroupedByCategoryMinimal());
+    }
+
+    @GetMapping("/by-subcategory/{subCategoryId}")
+    @Operation(summary = "Get active services (id + name only) by SubCategory ID")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "List of services under the subcategory"),
+            @ApiResponse(responseCode = "404", description = "Subcategory not found or no active services")
+    })
+    public ResponseEntity<List<Map<String, Object>>> getServicesBySubCategoryId(
+            @PathVariable Long subCategoryId) {
+
+        List<Map<String, Object>> services = serviceService.getActiveServicesBySubCategoryId(subCategoryId);
+
+        if (services.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(services);
     }
 }

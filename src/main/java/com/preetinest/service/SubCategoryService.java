@@ -16,4 +16,6 @@ public interface SubCategoryService {
     void softDeleteSubCategory(Long id, Long userId);
     Map<String, Object> createSubCategory(SubCategoryRequestDTO requestDTO, Long userId);
     Map<String, Object> updateSubCategory(Long id, SubCategoryRequestDTO requestDTO, Long userId);
+
+    List<Map<String, Object>> getActiveSubCategoriesByCategoryId(Long categoryId);
 }

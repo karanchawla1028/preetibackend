@@ -110,4 +110,26 @@ public class SubCategoryController {
         subCategoryService.softDeleteSubCategory(id, userId);
         return ResponseEntity.noContent().build();
     }
+
+
+    @GetMapping("/by-category/{categoryId}")
+    @Operation(summary = "Get active subcategories by Category ID",
+            description = "Returns list of active, displayed, non-deleted subcategories under a category")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "List of subcategories"),
+            @ApiResponse(responseCode = "404", description = "Category not found or no active subcategories")
+    })
+    public ResponseEntity<List<Map<String, Object>>> getActiveSubCategoriesByCategoryId(
+            @PathVariable Long categoryId) {
+
+        List<Map<String, Object>> subCategories = subCategoryService.getActiveSubCategoriesByCategoryId(categoryId);
+
+        if (subCategories.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(subCategories);
+    }
+
+
 }

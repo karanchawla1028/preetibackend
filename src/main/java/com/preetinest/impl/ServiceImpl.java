@@ -386,4 +386,58 @@ public class ServiceImpl implements ServiceService {
         dto.setCreatedById(faq.getCreatedBy() != null ? faq.getCreatedBy().getId() : null);
         return dto;
     }
+
+
+    @Override
+    public Map<Long, Map<String, Object>> getServicesGroupedByCategoryMinimal() {
+        return serviceRepository.findAllActiveServices()
+                .stream()
+                .filter(s -> s.getDeleteStatus() == 2 && s.isActive() && s.isDisplayStatus())
+                .collect(Collectors.groupingBy(
+                        service -> service.getSubCategory().getCategory().getId(),
+                        Collectors.collectingAndThen(
+                                Collectors.toList(),
+                                list -> {
+                                    if (list.isEmpty()) return null;
+
+                                    Category category = list.get(0).getSubCategory().getCategory();
+                                    Map<String, Object> categoryInfo = new HashMap<>();
+                                    categoryInfo.put("name", category.getName());
+
+                                    List<Map<String, Object>> services = list.stream()
+                                            .map(s -> {
+                                                Map<String, Object> svc = new HashMap<>();
+                                                svc.put("id", s.getId());
+                                                svc.put("name", s.getName());
+                                                return svc;
+                                            })
+                                            .collect(Collectors.toList());
+
+                                    categoryInfo.put("services", services);
+                                    return categoryInfo;
+                                }
+                        )
+                ));
+    }
+
+
+    @Override
+    public List<Map<String, Object>> getActiveServicesBySubCategoryId(Long subCategoryId) {
+        return serviceRepository.findAllActiveServices()
+                .stream()
+                .filter(s -> s.getDeleteStatus() == 2
+                        && s.isActive()
+                        && s.isDisplayStatus()
+                        && s.getSubCategory() != null
+                        && s.getSubCategory().getId().equals(subCategoryId))
+                .map(service -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("id", service.getId());
+                    map.put("name", service.getName());
+                    return map;
+                })
+                .collect(Collectors.toList());
+    }
+
+
 }

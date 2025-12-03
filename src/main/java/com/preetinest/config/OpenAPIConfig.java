@@ -51,12 +51,12 @@
                         .description("Local Development Server"));
             }
 
-//            else {
-//                log.warn("LOCAL profile is NOT active - Using PRODUCTION server: https://preetinest.ca");
-//                openAPI.addServersItem(new Server()
-//                        .url("https://preetinest.ca")
-//                        .description("Production Server"));
-//            }
+            else {
+                log.warn("LOCAL profile is NOT active - Using PRODUCTION server: https://preetinest.ca");
+                openAPI.addServersItem(new Server()
+                        .url("https://preetinest.ca")
+                        .description("Production Server"));
+            }
 
             log.info("=====================================");
 

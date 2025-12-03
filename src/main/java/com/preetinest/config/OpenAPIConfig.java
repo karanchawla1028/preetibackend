@@ -1,6 +1,7 @@
     // src/main/java/com/preetinest/config/OpenAPIConfig.java
     package com.preetinest.config;
 
+
     import io.swagger.v3.oas.models.OpenAPI;
     import io.swagger.v3.oas.models.servers.Server;
     import org.slf4j.Logger;

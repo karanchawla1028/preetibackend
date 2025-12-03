@@ -1,4 +1,30 @@
-# Application configuration
+# Spring Boot / Java compiled classes
+/target/
+/*.class
+*.class
+
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Build output
+/target/classes/
+/build/
+/out/
+
+# Application configuration (never commit secrets!)
 src/main/resources/application.properties
-/application.properties
-*.properties
+src/main/resources/application.yml
+src/main/resources/application-*.properties
+src/main/resources/application-*.yml
+
+# Or simply (if you prefer to ignore ALL .properties/.yml in resources):
+# src/main/resources/*.properties
+# src/main/resources/*.yml
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.log

@@ -4,12 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 
 @Data
-@Getter
-@Setter
 public class BlogDetailRequestDTO {
 
     @NotBlank(message = "Heading is mandatory")
@@ -19,11 +15,10 @@ public class BlogDetailRequestDTO {
     @NotBlank(message = "Content is mandatory")
     private String content;
 
-    // NEW: Base64 image (main way to upload images)
-    private String imageBase64;  // e.g., "data:image/png;base64,iVBORw0KGgo..."
+    // This holds the S3 filename (e.g., "blog-details/bali-beach-2025.jpg")
+    private String image;
 
-    // OLD: Keep this for backward compatibility or external URLs (optional)
-    @Size(max = 255, message = "Image URL must not exceed 255 characters")
+    // Optional: keep for backward compatibility or external URLs
     private String imageUrl;
 
     @NotNull(message = "Display order is mandatory")
@@ -32,6 +27,5 @@ public class BlogDetailRequestDTO {
     @NotNull(message = "Blog ID is mandatory")
     private Long blogId;
 
-    @NotNull(message = "Active status is mandatory")
     private Boolean active;
 }

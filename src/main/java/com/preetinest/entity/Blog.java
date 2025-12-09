@@ -32,6 +32,9 @@ public class Blog {
     @Column(length = 255, nullable = false)
     private String title;
 
+    @Column(length = 255)
+    private String imageUrl;  // This stores the S3 key (filename), e.g., "blog-details/xyz.jpg"
+
     @Column(columnDefinition = "TEXT", nullable = false)
     private String excerpt;
 
@@ -53,8 +56,6 @@ public class Blog {
     @Column(length = 255)
     private String image;
 
-    @Column(length = 500)
-    private String imageUrl;
 
     @Column(nullable = false, columnDefinition = "boolean default true")
     private boolean active = true;

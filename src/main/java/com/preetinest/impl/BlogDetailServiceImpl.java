@@ -33,121 +33,91 @@ public class BlogDetailServiceImpl implements BlogDetailService {
     @Override
     @Transactional
     public Map<String, Object> createBlogDetail(BlogDetailRequestDTO dto, Long userId) {
-
         if (userId == null) {
-            throw new IllegalArgumentException("User ID is required to create a category");
+            throw new IllegalArgumentException("User ID is required");
         }
+
         log.info("=== CREATE BLOG DETAIL START ===");
         log.info("Request DTO: {}", dto);
-        log.info("Created by userId: {}", userId);
-        if (userId == null) {
-            throw new IllegalArgumentException("User ID is required to create a category");
+
+        User admin = getAdminUser(userId);
+
+        Blog blog = blogRepository.findById(dto.getBlogId())
+                .filter(b -> b.getDeleteStatus() == 2 && b.isActive() && b.isDisplayStatus())
+                .orElseThrow(() -> new EntityNotFoundException("Valid blog not found with ID: " + dto.getBlogId()));
+
+        BlogDetail detail = new BlogDetail();
+        detail.setUuid(UUID.randomUUID().toString());
+        detail.setHeading(dto.getHeading());
+        detail.setContent(dto.getContent());
+        detail.setDisplayOrder(dto.getDisplayOrder() != null ? dto.getDisplayOrder() : 0);
+        detail.setBlog(blog);
+        detail.setActive(dto.getActive() != null ? dto.getActive() : true);
+        detail.setDisplayStatus(dto.getActive() != null ? dto.getActive() : true);
+        detail.setDeleteStatus(2);
+        detail.setCreatedBy(admin);
+
+        // Handle S3 image (preferred)
+        if (dto.getImage() != null && !dto.getImage().trim().isEmpty()) {
+            String fileName = dto.getImage().trim();
+            detail.setImageUrl(fileName);
+            log.info("BlogDetail image set → S3 key: {}", fileName);
+        }
+        // Fallback: direct external URL (optional support)
+        else if (dto.getImageUrl() != null && !dto.getImageUrl().trim().isEmpty()) {
+            detail.setImageUrl(dto.getImageUrl().trim());
+            log.info("BlogDetail image set → external URL: {}", dto.getImageUrl());
         }
 
+        BlogDetail saved = blogDetailRepository.save(detail);
+        log.info("Blog detail created | ID: {} | BlogID: {}", saved.getId(), blog.getId());
 
-        try {
-            User admin = getAdminUser(userId);
-
-            Blog blog = blogRepository.findById(dto.getBlogId())
-                    .filter(b -> b.getDeleteStatus() == 2 && b.isActive() && b.isDisplayStatus())
-                    .orElseThrow(() -> {
-                        log.error("Blog not found or inactive. blogId={}", dto.getBlogId());
-                        return new EntityNotFoundException("Valid blog not found with ID: " + dto.getBlogId());
-                    });
-
-            BlogDetail detail = new BlogDetail();
-            detail.setUuid(UUID.randomUUID().toString());
-            detail.setHeading(dto.getHeading());
-            detail.setContent(dto.getContent());
-            detail.setDisplayOrder(dto.getDisplayOrder() != null ? dto.getDisplayOrder() : 0);
-            detail.setBlog(blog);
-            detail.setActive(dto.getActive() != null ? dto.getActive() : true);
-            detail.setDisplayStatus(dto.getActive() != null ? dto.getActive() : true);
-            detail.setDeleteStatus(2);
-            detail.setCreatedBy(admin);
-
-            // Handle image upload (Base64)
-            if (dto.getImageBase64() != null && !dto.getImageBase64().isBlank()) {
-                try {
-                    String fileName = s3Service.uploadBase64Image(dto.getImageBase64());
-                    detail.setImageUrl(fileName);
-                    log.info("Image uploaded for blog detail: {}", fileName);
-                } catch (Exception e) {
-                    log.error("Failed to upload image for blog detail (blogId={})", dto.getBlogId(), e);
-                    throw new RuntimeException("Image upload failed", e);
-                }
-            }
-
-            BlogDetail saved = blogDetailRepository.save(detail);
-            log.info("Blog detail created | ID: {} | BlogID: {}", saved.getId(), blog.getId());
-
-            Map<String, Object> response = mapToResponseMap(saved);
-            log.info("=== CREATE BLOG DETAIL SUCCESS ===");
-            return response;
-
-        } catch (Exception e) {
-            log.error("ERROR creating blog detail: {}", e.getMessage(), e);
-            throw e;
-        }
+        Map<String, Object> response = mapToResponseMap(saved);
+        log.info("=== CREATE BLOG DETAIL SUCCESS ===");
+        return response;
     }
 
     @Override
     @Transactional
     public Map<String, Object> updateBlogDetail(Long id, BlogDetailRequestDTO dto, Long userId) {
-
         if (userId == null) {
-            throw new IllegalArgumentException("User ID is required to create a category");
+            throw new IllegalArgumentException("User ID is required");
         }
 
-        if (userId == null) {
-            throw new IllegalArgumentException("User ID is required to create a category");
-        }
         log.info("=== UPDATE BLOG DETAIL ID: {} ===", id);
-        log.info("Update DTO: {}", dto);
 
-        try {
-            BlogDetail detail = blogDetailRepository.findById(id)
-                    .filter(d -> d.getDeleteStatus() == 2)
-                    .orElseThrow(() -> {
-                        log.error("Blog detail not found. detailId={}", id);
-                        return new EntityNotFoundException("Blog detail not found with ID: " + id);
-                    });
+        BlogDetail detail = blogDetailRepository.findById(id)
+                .filter(d -> d.getDeleteStatus() == 2)
+                .orElseThrow(() -> new EntityNotFoundException("Blog detail not found with ID: " + id));
 
-            getAdminUser(userId); // validate admin
+        getAdminUser(userId);
 
-            Blog blog = blogRepository.findById(dto.getBlogId())
-                    .filter(b -> b.getDeleteStatus() == 2 && b.isActive() && b.isDisplayStatus())
-                    .orElseThrow(() -> new EntityNotFoundException("Valid blog not found"));
+        Blog blog = blogRepository.findById(dto.getBlogId())
+                .filter(b -> b.getDeleteStatus() == 2 && b.isActive() && b.isDisplayStatus())
+                .orElseThrow(() -> new EntityNotFoundException("Valid blog not found"));
 
-            detail.setHeading(dto.getHeading());
-            detail.setContent(dto.getContent());
-            detail.setDisplayOrder(dto.getDisplayOrder() != null ? dto.getDisplayOrder() : detail.getDisplayOrder());
-            detail.setBlog(blog);
-            detail.setActive(dto.getActive() != null ? dto.getActive() : detail.isActive());
-            detail.setDisplayStatus(dto.getActive() != null ? dto.getActive() : detail.isDisplayStatus());
+        detail.setHeading(dto.getHeading());
+        detail.setContent(dto.getContent());
+        detail.setDisplayOrder(dto.getDisplayOrder() != null ? dto.getDisplayOrder() : detail.getDisplayOrder());
+        detail.setBlog(blog);
+        detail.setActive(dto.getActive() != null ? dto.getActive() : detail.isActive());
+        detail.setDisplayStatus(dto.getActive() != null ? dto.getActive() : detail.isDisplayStatus());
 
-            if (dto.getImageBase64() != null && !dto.getImageBase64().isBlank()) {
-                try {
-                    String newFileName = s3Service.uploadBase64Image(dto.getImageBase64());
-                    detail.setImageUrl(newFileName);
-                    log.info("Image updated for blog detail ID {}: {}", id, newFileName);
-                } catch (Exception e) {
-                    log.error("Image update failed for blog detail ID {}", id, e);
-                    throw new RuntimeException("Image upload failed", e);
-                }
-            }
-
-            BlogDetail updated = blogDetailRepository.save(detail);
-            log.info("Blog detail updated | ID: {}", updated.getId());
-
-            Map<String, Object> response = mapToResponseMap(updated);
-            log.info("=== UPDATE BLOG DETAIL SUCCESS ===");
-            return response;
-
-        } catch (Exception e) {
-            log.error("ERROR updating blog detail ID {}: {}", id, e.getMessage(), e);
-            throw e;
+        // Update image if provided
+        if (dto.getImage() != null && !dto.getImage().trim().isEmpty()) {
+            detail.setImageUrl(dto.getImage().trim());
+            log.info("BlogDetail image updated → S3 key: {}", dto.getImage());
+        } else if (dto.getImageUrl() != null && !dto.getImageUrl().trim().isEmpty()) {
+            detail.setImageUrl(dto.getImageUrl().trim());
+            log.info("BlogDetail image updated → external URL: {}", dto.getImageUrl());
         }
+
+        BlogDetail updated = blogDetailRepository.save(detail);
+        log.info("Blog detail updated | ID: {}", updated.getId());
+
+        Map<String, Object> response = mapToResponseMap(updated);
+        log.info("=== UPDATE BLOG DETAIL SUCCESS ===");
+        return response;
     }
 
     @Override
@@ -180,55 +150,36 @@ public class BlogDetailServiceImpl implements BlogDetailService {
     @Override
     @Transactional
     public void softDeleteBlogDetail(Long id, Long userId) {
-
         if (userId == null) {
-            throw new IllegalArgumentException("User ID is required to create a category");
-        }
-        log.info("=== SOFT DELETE BLOG DETAIL ID: {} by userId: {} ===", id, userId);
-
-        try {
-            BlogDetail detail = blogDetailRepository.findById(id)
-                    .filter(d -> d.getDeleteStatus() == 2)
-                    .orElseThrow(() -> {
-                        log.error("Blog detail not found. detailId={}", id);
-                        return new EntityNotFoundException("Blog detail not found with ID: " + id);
-                    });
-
-            getAdminUser(userId);
-
-            detail.setDeleteStatus(1);
-            detail.setActive(false);
-            detail.setDisplayStatus(false);
-            blogDetailRepository.save(detail);
-
-            log.warn("Blog detail ID {} soft-deleted by user {}", id, userId);
-            log.info("=== SOFT DELETE BLOG DETAIL SUCCESS ===");
-
-        } catch (Exception e) {
-            log.error("ERROR soft-deleting blog detail ID {}: {}", id, e.getMessage(), e);
-            throw e;
-        }
-    }
-
-    // ====================== HELPER ======================
-
-    private User getAdminUser(Long userId) {
-        if (userId == null) {
-            log.error("userId is null – admin required");
             throw new IllegalArgumentException("User ID is required");
         }
 
+        log.info("=== SOFT DELETE BLOG DETAIL ID: {} by userId: {} ===", id, userId);
+
+        BlogDetail detail = blogDetailRepository.findById(id)
+                .filter(d -> d.getDeleteStatus() == 2)
+                .orElseThrow(() -> new EntityNotFoundException("Blog detail not found with ID: " + id));
+
+        getAdminUser(userId);
+
+        detail.setDeleteStatus(1);
+        detail.setActive(false);
+        detail.setDisplayStatus(false);
+        blogDetailRepository.save(detail);
+
+        log.warn("Blog detail ID {} soft-deleted by user {}", id, userId);
+        log.info("=== SOFT DELETE BLOG DETAIL SUCCESS ===");
+    }
+
+    // ====================== HELPER ======================
+    private User getAdminUser(Long userId) {
         return userRepository.findById(userId)
                 .filter(u -> u.getDeleteStatus() == 2 && u.isEnable())
                 .filter(u -> "ADMIN".equalsIgnoreCase(u.getRole().getName()))
-                .orElseThrow(() -> {
-                    log.error("User {} is not an active ADMIN", userId);
-                    return new IllegalArgumentException("Only ADMIN users can perform this action");
-                });
+                .orElseThrow(() -> new IllegalArgumentException("Only ADMIN users can perform this action"));
     }
 
     // ====================== MAPPER (with full S3 URL) ======================
-
     private Map<String, Object> mapToResponseMap(BlogDetail detail) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", detail.getId());
@@ -243,10 +194,9 @@ public class BlogDetailServiceImpl implements BlogDetailService {
         map.put("updatedAt", detail.getUpdatedAt());
         map.put("createdById", detail.getCreatedBy() != null ? detail.getCreatedBy().getId() : null);
 
-        // THIS IS WHAT YOU WANT: full public URL
+        // Returns full public S3 URL if imageUrl is an S3 key
         String imageKey = detail.getImageUrl();
         map.put("imageUrl", imageKey != null ? s3Service.getFullUrl(imageKey) : null);
-        // Example: https://preetinest.s3.ca-central-1.amazonaws.com/blog-details/abc123.png
 
         return map;
     }

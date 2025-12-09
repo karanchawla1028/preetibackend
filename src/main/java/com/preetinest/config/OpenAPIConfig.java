@@ -1,4 +1,3 @@
-    // src/main/java/com/preetinest/config/OpenAPIConfig.java
     package com.preetinest.config;
 
 

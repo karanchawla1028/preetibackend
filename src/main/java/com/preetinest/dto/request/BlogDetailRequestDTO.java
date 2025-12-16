@@ -4,7 +4,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-
 @Data
 public class BlogDetailRequestDTO {
 
@@ -15,10 +14,6 @@ public class BlogDetailRequestDTO {
     @NotBlank(message = "Content is mandatory")
     private String content;
 
-    // This holds the S3 filename (e.g., "blog-details/bali-beach-2025.jpg")
-    private String image;
-
-    // Optional: keep for backward compatibility or external URLs
     private String imageUrl;
 
     @NotNull(message = "Display order is mandatory")

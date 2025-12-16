@@ -50,24 +50,13 @@ public class BlogDetailServiceImpl implements BlogDetailService {
         detail.setUuid(UUID.randomUUID().toString());
         detail.setHeading(dto.getHeading());
         detail.setContent(dto.getContent());
+        detail.setImageUrl(dto.getImageUrl()); // S3 key, can be null
         detail.setDisplayOrder(dto.getDisplayOrder() != null ? dto.getDisplayOrder() : 0);
         detail.setBlog(blog);
         detail.setActive(dto.getActive() != null ? dto.getActive() : true);
         detail.setDisplayStatus(dto.getActive() != null ? dto.getActive() : true);
         detail.setDeleteStatus(2);
         detail.setCreatedBy(admin);
-
-        // Handle S3 image (preferred)
-        if (dto.getImage() != null && !dto.getImage().trim().isEmpty()) {
-            String fileName = dto.getImage().trim();
-            detail.setImageUrl(fileName);
-            log.info("BlogDetail image set → S3 key: {}", fileName);
-        }
-        // Fallback: direct external URL (optional support)
-        else if (dto.getImageUrl() != null && !dto.getImageUrl().trim().isEmpty()) {
-            detail.setImageUrl(dto.getImageUrl().trim());
-            log.info("BlogDetail image set → external URL: {}", dto.getImageUrl());
-        }
 
         BlogDetail saved = blogDetailRepository.save(detail);
         log.info("Blog detail created | ID: {} | BlogID: {}", saved.getId(), blog.getId());
@@ -94,23 +83,25 @@ public class BlogDetailServiceImpl implements BlogDetailService {
 
         Blog blog = blogRepository.findById(dto.getBlogId())
                 .filter(b -> b.getDeleteStatus() == 2 && b.isActive() && b.isDisplayStatus())
-                .orElseThrow(() -> new EntityNotFoundException("Valid blog not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Valid blog not found with ID: " + dto.getBlogId()));
 
+        // Update fields
         detail.setHeading(dto.getHeading());
         detail.setContent(dto.getContent());
-        detail.setDisplayOrder(dto.getDisplayOrder() != null ? dto.getDisplayOrder() : detail.getDisplayOrder());
         detail.setBlog(blog);
-        detail.setActive(dto.getActive() != null ? dto.getActive() : detail.isActive());
-        detail.setDisplayStatus(dto.getActive() != null ? dto.getActive() : detail.isDisplayStatus());
 
-        // Update image if provided
-        if (dto.getImage() != null && !dto.getImage().trim().isEmpty()) {
-            detail.setImageUrl(dto.getImage().trim());
-            log.info("BlogDetail image updated → S3 key: {}", dto.getImage());
-        } else if (dto.getImageUrl() != null && !dto.getImageUrl().trim().isEmpty()) {
-            detail.setImageUrl(dto.getImageUrl().trim());
-            log.info("BlogDetail image updated → external URL: {}", dto.getImageUrl());
-        }
+        // Only update these if provided in DTO (partial update support)
+        Optional.ofNullable(dto.getDisplayOrder())
+                .ifPresent(detail::setDisplayOrder);
+
+        Optional.ofNullable(dto.getImageUrl())
+                .ifPresent(detail::setImageUrl);
+
+        Optional.ofNullable(dto.getActive())
+                .ifPresent(active -> {
+                    detail.setActive(active);
+                    detail.setDisplayStatus(active);
+                });
 
         BlogDetail updated = blogDetailRepository.save(detail);
         log.info("Blog detail updated | ID: {}", updated.getId());
@@ -179,13 +170,16 @@ public class BlogDetailServiceImpl implements BlogDetailService {
                 .orElseThrow(() -> new IllegalArgumentException("Only ADMIN users can perform this action"));
     }
 
-    // ====================== MAPPER (with full S3 URL) ======================
+    // ====================== MAPPER (with full public S3 URL) ======================
     private Map<String, Object> mapToResponseMap(BlogDetail detail) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", detail.getId());
         map.put("uuid", detail.getUuid());
         map.put("heading", detail.getHeading());
         map.put("content", detail.getContent());
+        map.put("imageUrl", Optional.ofNullable(detail.getImageUrl())
+                .map(s3Service::getFullUrl)
+                .orElse(null));
         map.put("displayOrder", detail.getDisplayOrder());
         map.put("blogId", detail.getBlog().getId());
         map.put("active", detail.isActive());
@@ -193,10 +187,6 @@ public class BlogDetailServiceImpl implements BlogDetailService {
         map.put("createdAt", detail.getCreatedAt());
         map.put("updatedAt", detail.getUpdatedAt());
         map.put("createdById", detail.getCreatedBy() != null ? detail.getCreatedBy().getId() : null);
-
-        // Returns full public S3 URL if imageUrl is an S3 key
-        String imageKey = detail.getImageUrl();
-        map.put("imageUrl", imageKey != null ? s3Service.getFullUrl(imageKey) : null);
 
         return map;
     }

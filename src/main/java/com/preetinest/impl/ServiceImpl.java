@@ -7,6 +7,7 @@ import com.preetinest.entity.*;
 import com.preetinest.repository.*;
 import com.preetinest.service.ServiceService;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,16 +45,13 @@ public class ServiceImpl implements ServiceService {
     }
 
     @Override
+    @Transactional
     public Map<String, Object> createService(ServiceRequestDTO requestDTO, Long userId) {
         log.info("=== CREATE SERVICE START ===");
         log.info("Request: {}", requestDTO);
 
-        if (userId == null) {
-            throw new IllegalArgumentException("User ID is required to create a category");
-        }
-
-        validateSlug(requestDTO.getSlug(), null);
         User createdBy = getAdminUser(userId);
+        validateSlug(requestDTO.getSlug(), null);
 
         SubCategory subCategory = subCategoryRepository.findById(requestDTO.getSubCategoryId())
                 .filter(sc -> sc.getDeleteStatus() == 2)
@@ -74,46 +72,41 @@ public class ServiceImpl implements ServiceService {
         service.setDeleteStatus(2);
         service.setCreatedBy(createdBy);
 
-        // Handle image upload
+        // Handle image: base64 upload or existing key
         if (requestDTO.getImage() != null && requestDTO.getImage().startsWith("data:image")) {
             String fileName = s3Service.uploadBase64Image(requestDTO.getImage());
-            String fullUrl = s3Service.getFullUrl(fileName);
-
-            service.setImage(fileName);      // e.g. abc123.png
-            service.setImageUrl(fullUrl);    // e.g. https://preetinest.s3.../abc123.png
-
-            log.info("Uploaded new image → filename: {}, url: {}", fileName, fullUrl);
+            service.setImage(fileName);
+            service.setImageUrl(s3Service.getFullUrl(fileName));
+            log.info("New image uploaded to S3 → key: {}", fileName);
         } else if (requestDTO.getImage() != null && !requestDTO.getImage().isBlank()) {
-            // Already a URL or filename (rare case)
             service.setImage(requestDTO.getImage());
             service.setImageUrl(s3Service.getFullUrl(requestDTO.getImage()));
         }
 
         Services saved = serviceRepository.save(service);
-        log.info("Service created → ID: {}, UUID: {}", saved.getId(), saved.getUuid());
+        log.info("Service created → ID: {}, Slug: {}", saved.getId(), saved.getSlug());
 
         Map<String, Object> response = mapToResponseMap(saved);
         log.info("=== CREATE SERVICE SUCCESS ===");
         return response;
     }
+
+
     @Override
+    @Transactional
     public Map<String, Object> updateService(Long id, ServiceRequestDTO requestDTO, Long userId) {
         log.info("=== UPDATE SERVICE ID: {} ===", id);
-
-        if (userId == null) {
-            throw new IllegalArgumentException("User ID is required to create a category");
-        }
 
         Services service = serviceRepository.findById(id)
                 .filter(s -> s.getDeleteStatus() == 2)
                 .orElseThrow(() -> new EntityNotFoundException("Service not found: " + id));
 
-        validateSlug(requestDTO.getSlug(), id);
         getAdminUser(userId);
+        validateSlug(requestDTO.getSlug(), id);
 
         SubCategory subCategory = subCategoryRepository.findById(requestDTO.getSubCategoryId())
                 .filter(sc -> sc.getDeleteStatus() == 2)
-                .orElseThrow(() -> new EntityNotFoundException("Subcategory not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Subcategory not found: " + requestDTO.getSubCategoryId()));
 
         service.setName(requestDTO.getName());
         service.setDescription(requestDTO.getDescription());
@@ -126,24 +119,21 @@ public class ServiceImpl implements ServiceService {
         service.setDisplayStatus(requestDTO.isDisplayStatus());
         service.setShowOnHome(requestDTO.isShowOnHome());
 
-        // Handle image update
+        // Only update image if new base64 image provided
         if (requestDTO.getImage() != null && requestDTO.getImage().startsWith("data:image")) {
             String fileName = s3Service.uploadBase64Image(requestDTO.getImage());
-            String fullUrl = s3Service.getFullUrl(fileName);
-
             service.setImage(fileName);
-            service.setImageUrl(fullUrl);
-
-            log.info("Updated image → new filename: {}, url: {}", fileName, fullUrl);
+            service.setImageUrl(s3Service.getFullUrl(fileName));
+            log.info("Image updated → new S3 key: {}", fileName);
         }
-        // If no new image, keep old ones
 
         Services updated = serviceRepository.save(service);
+        log.info("Service updated → ID: {}", updated.getId());
+
         Map<String, Object> response = mapToResponseMap(updated);
         log.info("=== UPDATE SERVICE SUCCESS ===");
         return response;
     }
-
     // ====================== MAPPERS ======================
 
     private ServiceResponseDTO mapToServiceResponseDTO(Services service) {
@@ -157,7 +147,7 @@ public class ServiceImpl implements ServiceService {
         dto.setCategoryId(service.getSubCategory().getCategory().getId());
         dto.setCategoryName(service.getSubCategory().getCategory().getName());
 
-        dto.setImage(service.getImage());                    // filename
+        dto.setImage(service.getImage());
         dto.setImageUrl(service.getImageUrl() != null ? service.getImageUrl() : s3Service.getFullUrl(service.getImage()));
 
         dto.setMetaTitle(service.getMetaTitle());

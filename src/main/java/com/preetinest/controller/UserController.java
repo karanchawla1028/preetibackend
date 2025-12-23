@@ -95,4 +95,24 @@ public class UserController {
         userService.softDeleteUser(id, userId);
         return ResponseEntity.noContent().build();
     }
+
+    @PutMapping("/change-password")
+    @Operation(summary = "Reset Password by Email",
+            description = "Resets the user's password using only their email. No old password required.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Password reset successfully"),
+            @ApiResponse(responseCode = "400", description = "Passwords do not match or invalid input"),
+            @ApiResponse(responseCode = "404", description = "User not found or inactive")
+    })
+    public ResponseEntity<Map<String, Object>> changePassword(
+            @RequestParam("email") String email,
+            @RequestParam("newPassword") String newPassword,
+            @RequestParam("confirmPassword") String confirmPassword) {
+
+        Map<String, Object> response = userService.changePassword(email, newPassword, confirmPassword);
+
+        return ResponseEntity.ok(response);
+    }
+
+
 }

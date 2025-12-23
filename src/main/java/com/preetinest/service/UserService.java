@@ -22,4 +22,8 @@ public interface UserService {
     void softDeleteUser(Long id, Long userId);
 
     Map<String, Object> login(LoginRequestDTO requestDTO);
+
+    Map<String, Object> changePassword(String email, String newPassword, String confirmPassword);
+
+
 }

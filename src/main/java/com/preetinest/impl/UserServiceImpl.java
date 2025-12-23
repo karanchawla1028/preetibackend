@@ -152,6 +152,31 @@ public class UserServiceImpl implements UserService {
         return mapToResponse(user);
     }
 
+
+    @Override
+    public Map<String, Object> changePassword(String email, String newPassword, String confirmPassword) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Email is required");
+        }
+        if (newPassword == null || newPassword.isBlank()) {
+            throw new IllegalArgumentException("New password is required");
+        }
+        if (confirmPassword == null || confirmPassword.isBlank()) {
+            throw new IllegalArgumentException("Confirm password is required");
+        }
+        if (!newPassword.equals(confirmPassword)) {
+            throw new IllegalArgumentException("New password and confirm password do not match");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .filter(u -> u.getDeleteStatus() == 2 && u.isEnable())
+                .orElseThrow(() -> new EntityNotFoundException("Active user not found with email: " + email));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        User updatedUser = userRepository.save(user);
+
+        return mapToResponse(updatedUser);
+    }
     private Map<String, Object> mapToResponse(User user) {
         Map<String, Object> response = new HashMap<>();
         response.put("id", user.getId());
